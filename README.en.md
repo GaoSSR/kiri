@@ -8,6 +8,8 @@
   </picture>
 </p>
 
+<br />
+
 <p align="center">
   <a href="https://github.com/GaoSSR/kiri">
     <picture>
