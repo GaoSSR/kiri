@@ -1,23 +1,34 @@
 <h4 align="right"><a href="./README.md">简体中文</a> | <strong><a href="./README.en.md">English</a></strong></h4>
 
-<h1 align="center">
-  <img src="assets/kiri-logo.png" alt="Kiri" width="420" />
+<p>
+  <a href="https://github.com/GaoSSR/kiri">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
+      <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="64" style="width: auto;">
+    </picture>
+  </a>
   <br />
-  <span style="font-size: 64px;">Kiri</span>
-</h1>
-
-<p align="center">
-  <strong>Local development port management CLI</strong>
 </p>
 
-<p align="center">
+### Local development port management CLI
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="300">
+</picture>
+
+Kiri is a CLI for managing local development ports. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
+
+<p>
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
   <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-## Why Kiri?
+## Core Usage
 
 - **View local development services and their ports:** `ports`
 - **Quickly kill the process / PID behind a port:** `ports kill <port>`

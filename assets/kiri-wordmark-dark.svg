@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="246" height="88" viewBox="0 0 246 88" role="img" aria-labelledby="title">
+  <title id="title">Kiri</title>
+  <g fill="#38BDF8" opacity="0.35" shape-rendering="crispEdges" transform="translate(4 4)">
+    <rect x="0" y="4" width="14" height="76"/>
+    <rect x="18" y="36" width="14" height="14"/>
+    <rect x="32" y="22" width="14" height="14"/>
+    <rect x="46" y="8" width="14" height="14"/>
+    <rect x="32" y="50" width="14" height="14"/>
+    <rect x="46" y="64" width="14" height="14"/>
+    <rect x="82" y="8" width="14" height="14"/>
+    <rect x="82" y="32" width="14" height="48"/>
+    <rect x="118" y="32" width="14" height="48"/>
+    <rect x="132" y="32" width="38" height="12"/>
+    <rect x="170" y="44" width="14" height="14"/>
+    <rect x="206" y="8" width="14" height="14"/>
+    <rect x="206" y="32" width="14" height="48"/>
+  </g>
+  <g fill="#F8FAFC" shape-rendering="crispEdges">
+    <rect x="0" y="4" width="14" height="76"/>
+    <rect x="18" y="36" width="14" height="14"/>
+    <rect x="32" y="22" width="14" height="14"/>
+    <rect x="46" y="8" width="14" height="14"/>
+    <rect x="32" y="50" width="14" height="14"/>
+    <rect x="46" y="64" width="14" height="14"/>
+    <rect x="82" y="8" width="14" height="14"/>
+    <rect x="82" y="32" width="14" height="48"/>
+    <rect x="118" y="32" width="14" height="48"/>
+    <rect x="132" y="32" width="38" height="12"/>
+    <rect x="170" y="44" width="14" height="14"/>
+    <rect x="206" y="8" width="14" height="14"/>
+    <rect x="206" y="32" width="14" height="48"/>
+  </g>
+</svg>

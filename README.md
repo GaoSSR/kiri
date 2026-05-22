@@ -1,23 +1,34 @@
 <h4 align="right"><strong><a href="./README.md">简体中文</a></strong> | <a href="./README.en.md">English</a></h4>
 
-<h1 align="center">
-  <img src="assets/kiri-logo.png" alt="Kiri" width="420" />
+<p>
+  <a href="https://github.com/GaoSSR/kiri">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
+      <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="64" style="width: auto;">
+    </picture>
+  </a>
   <br />
-  <span style="font-size: 64px;">Kiri</span>
-</h1>
-
-<p align="center">
-  <strong>管理本地开发端口的 CLI</strong>
 </p>
 
-<p align="center">
+### 管理本地开发端口的 CLI
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="300">
+</picture>
+
+Kiri 是一个管理本地开发端口的 CLI。它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
+
+<p>
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
   <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-## 为什么需要 Kiri？
+## 核心用法
 
 - **快速查看本地开发端口：** `ports`
 - **快速 Kill 掉端口所对应的进程 / PID：** `ports kill <port>`
