@@ -102,7 +102,7 @@ Details mode never performs kill. Use `ports kill <target>` when you intend to t
 | --- | --- |
 | macOS | Supported first and currently the real implementation target |
 | Linux | Module structure exists; collector and release artifacts are still TODO |
-| Windows | Module structure exists; collector, release artifacts, and PowerShell installer are still TODO |
+| Windows | Module structure exists; collector and release artifacts are still TODO; PowerShell entry currently reports unsupported |
 
 On macOS, Kiri uses:
 
@@ -126,16 +126,6 @@ Kiri is a Rust migration and refactor of the JavaScript project `port-whisperer`
 - `logs` supports interactive multi-file selection in a real terminal and deterministic selection in non-interactive output.
 - Color output is controlled with `--color auto|always|never`.
 - Terminal rendering is width-aware and avoids low-contrast primary data.
-
-## Not Supported Yet
-
-- TUI.
-- Desktop app.
-- Tauri wrapper.
-- Complete Linux or Windows support.
-- Docker logs or process tree views.
-- Published npm package, Homebrew tap, or GitHub Release artifacts.
-- Secondary command aliases; the public command is `ports`.
 
 ## Development Checks
 
