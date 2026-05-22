@@ -61,12 +61,12 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          npm publish "dist/kiri-npm-darwin-arm64-${VERSION}.tgz" \
+          npm publish "./dist/kiri-npm-darwin-arm64-${VERSION}.tgz" \
             --tag darwin-arm64 \
             --access public \
             --provenance \
             --registry https://registry.npmjs.org/
-          npm publish "dist/kiri-npm-darwin-x64-${VERSION}.tgz" \
+          npm publish "./dist/kiri-npm-darwin-x64-${VERSION}.tgz" \
             --tag darwin-x64 \
             --access public \
             --provenance \
@@ -78,7 +78,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          npm publish "dist/kiri-npm-${VERSION}.tgz" \
+          npm publish "./dist/kiri-npm-${VERSION}.tgz" \
             --access public \
             --provenance \
             --registry https://registry.npmjs.org/
