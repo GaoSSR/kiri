@@ -12,6 +12,7 @@ const ROSE: &str = "\x1b[38;2;225;29;72m";
 const PURPLE: &str = "\x1b[38;2;139;92;246m";
 const ORANGE: &str = "\x1b[38;2;245;158;11m";
 const BORDER_GRAY: &str = "\x1b[38;2;163;163;163m";
+const BORDER_BLACK: &str = "\x1b[38;2;0;0;0m";
 const DOT_GREEN: &str = "\x1b[38;2;34;197;94m";
 
 const DEFAULT_TERMINAL_WIDTH: usize = 100;
@@ -546,7 +547,7 @@ fn push_border(output: &mut String, widths: &[usize; COLUMN_COUNT], kind: Border
         BorderKind::Bottom => ('└', '─', '┴', '┘'),
     };
 
-    output.push_str(BORDER_GRAY);
+    output.push_str(BORDER_BLACK);
     output.push(left);
     for (index, width) in widths.iter().enumerate() {
         output.push_str(&fill.to_string().repeat(width + 2));
@@ -571,7 +572,7 @@ fn push_process_border(
         BorderKind::Bottom => ('└', '─', '┴', '┘'),
     };
 
-    output.push_str(BORDER_GRAY);
+    output.push_str(BORDER_BLACK);
     output.push(left);
     for (index, width) in widths.iter().enumerate() {
         output.push_str(&fill.to_string().repeat(width + 2));
@@ -632,7 +633,7 @@ fn render_process_table_row(
 }
 
 fn push_border_char(output: &mut String, value: char) {
-    output.push_str(BORDER_GRAY);
+    output.push_str(BORDER_BLACK);
     output.push(value);
     output.push_str(RESET);
 }
@@ -1159,11 +1160,11 @@ mod tests {
         let output = render_port_table_with_width(&[port], true, 100);
 
         for color in [
-            "\x1b[38;2;59;130;246m",  // #3B82F6
-            "\x1b[38;2;139;92;246m",  // #8B5CF6
-            "\x1b[38;2;34;197;94m",   // #22C55E
-            "\x1b[38;2;245;158;11m",  // #F59E0B
-            "\x1b[38;2;163;163;163m", // #A3A3A3
+            "\x1b[38;2;59;130;246m", // #3B82F6
+            "\x1b[38;2;139;92;246m", // #8B5CF6
+            "\x1b[38;2;34;197;94m",  // #22C55E
+            "\x1b[38;2;245;158;11m", // #F59E0B
+            "\x1b[38;2;0;0;0m",      // #000000
         ] {
             assert!(output.contains(color), "missing color {color:?}");
         }
@@ -1314,7 +1315,7 @@ mod tests {
     }
 
     #[test]
-    fn border_gray_does_not_wrap_entire_table_rows() {
+    fn border_black_does_not_wrap_entire_table_rows() {
         let port = sample_port("frontend", "node vite");
 
         let output = render_port_table_with_width(&[port], true, 100);
@@ -1323,10 +1324,10 @@ mod tests {
             .find(|line| strip_ansi_codes(line).contains("5173"))
             .unwrap();
 
-        assert!(data_line.contains(&format!("{BORDER_GRAY}│{RESET} ")));
+        assert!(data_line.contains(&format!("{BORDER_BLACK}│{RESET} ")));
         assert!(data_line.contains("5173"));
         assert!(!data_line.contains(":5173"));
-        assert!(data_line.contains(&format!(" {BORDER_GRAY}│{RESET}")));
+        assert!(data_line.contains(&format!(" {BORDER_BLACK}│{RESET}")));
     }
 
     #[test]

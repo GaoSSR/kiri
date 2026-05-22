@@ -3,11 +3,11 @@
 <h1 align="center">
   <img src="assets/kiri-logo.png" alt="Kiri" width="420" />
   <br />
-  Kiri
+  <span style="font-size: 64px;">Kiri</span>
 </h1>
 
 <p align="center">
-  <strong>管理本地开发端口的CLI</strong>
+  <strong>管理本地开发端口的 CLI</strong>
 </p>
 
 <p align="center">
