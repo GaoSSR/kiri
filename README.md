@@ -2,7 +2,7 @@
 
 DevPorts is a Rust CLI for inspecting local listening ports during development. It shows the process, PID, project, detected framework, uptime, and status behind each listening port, with Docker host-port mapping and readable terminal output.
 
-The primary command is `devports`. The short command `ports` is also installed and runs the same logic.
+The primary command is `devports`. The short command `ports` is also installed and runs the same logic. `whoisonport` is provided as a compatibility alias for port detail lookup.
 
 ## Why This Exists
 
@@ -17,11 +17,15 @@ This first Rust version intentionally changes the delivery shape:
 
 ## Current Features
 
-- `devports` and `ports` commands.
+- `devports`, `ports`, and `whoisonport` commands.
 - Default view shows developer-relevant listening ports only.
 - `--all` shows every listening TCP port found by the platform collector.
 - `devports <port>` shows a detail page for one listening port.
 - `devports kill <target...>` terminates listeners by port, range, or PID fallback.
+- `devports ps` shows developer-related running processes.
+- `devports logs <port|pid>` shows process log output when log files or system logs are available.
+- `devports clean` lists orphaned/zombie developer processes and asks before killing.
+- `devports watch` streams port start/stop events.
 - `-f` / `--force` uses `SIGKILL`; default kill uses `SIGTERM`.
 - Docker host-port mapping from running containers.
 - Docker image identification for common services such as PostgreSQL, Redis, MySQL, MongoDB, nginx, LocalStack, RabbitMQ, Kafka, Elasticsearch, and MinIO.
@@ -51,13 +55,15 @@ brew install <tap-owner>/tap/devports
 
 DevPorts has not been published to npm or Homebrew yet. These are the intended user-facing install commands for the first public release, not a claim that the package or formula is already available.
 
-After installation, verify both binaries are available:
+After installation, verify the binaries are available:
 
 ```bash
 which devports
 which ports
+which whoisonport
 devports --color never
 ports --color never
+whoisonport --help
 ```
 
 If both npm and Homebrew versions are installed, `PATH` order decides which `devports` or `ports` binary runs.
@@ -85,9 +91,44 @@ Show details for one port:
 ```bash
 devports 3000
 ports 3000
+whoisonport 3000
 ```
 
-`devports <port>` only displays details. It does not ask whether to kill the process.
+`devports <port>` and `whoisonport <port>` only display details. They do not ask whether to kill the process.
+
+Show developer-related running processes:
+
+```bash
+devports ps
+ports ps
+devports ps --all
+```
+
+Show process logs by port or PID:
+
+```bash
+devports logs 3000
+devports logs 3000 --lines 10
+devports logs 3000 --lines=10
+devports logs 3000 --err
+devports logs 3000 --follow
+```
+
+Clean orphaned/zombie developer processes:
+
+```bash
+devports clean
+ports clean
+```
+
+`devports clean` lists candidates and asks for confirmation before sending any signal.
+
+Watch port changes:
+
+```bash
+devports watch
+ports watch
+```
 
 Kill must be explicit:
 
@@ -157,7 +198,9 @@ On macOS, DevPorts uses:
 
 - `lsof -iTCP -sTCP:LISTEN -P -n` for listening TCP ports.
 - `ps -p <pidList> -o pid=,ppid=,stat=,rss=,lstart=,command=` for process details.
+- `ps -eo pid=,pcpu=,pmem=,rss=,lstart=,command=` for `devports ps`.
 - `lsof -a -d cwd -p <pidList>` for current working directories.
+- `lsof -p <pid>` plus `tail` and macOS `log show` / `log stream` for `devports logs`.
 - `docker ps --format "{{.Ports}}\t{{.Names}}\t{{.Image}}"` for Docker host-port mappings when Docker is available.
 
 Docker is optional. If Docker is unavailable or no containers are running, DevPorts silently continues without Docker mappings.
@@ -170,7 +213,6 @@ This first CLI release does not implement:
 - Desktop app.
 - Tauri wrapper.
 - Complete Linux or Windows support.
-- `ps`, `logs`, `clean`, or `watch` commands from `port-whisperer`.
 - Docker logs or process tree views.
 - Published npm package or Homebrew formula. Those release packages are planned but not available yet.
 
@@ -183,9 +225,10 @@ DevPorts keeps the core behavior but changes the implementation and first-releas
 - macOS is implemented first; Linux and Windows are not claimed as complete.
 - Port detail view is read-only and never prompts to kill.
 - Kill is only performed through explicit `devports kill <target...>`.
+- `whoisonport` is kept as a compatibility detail alias only; new usage should prefer `devports <port>`.
+- `logs` uses deterministic log file selection when multiple files are found instead of an interactive picker.
 - Color output is controlled with `--color auto|always|never`.
 - Terminal rendering is width-aware and avoids low-contrast primary data.
-- `ps`, `logs`, `clean`, and `watch` are intentionally left out of this version.
 
 ## Development Checks
 

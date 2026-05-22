@@ -8,10 +8,11 @@ The future npm package should install with:
 npm install -g devports
 ```
 
-The package exposes two commands:
+The package exposes three commands:
 
 - `devports`
 - `ports`
+- `whoisonport`
 
 The bin shims in `bin/` do not call Cargo and do not compile Rust locally. They locate precompiled binaries under `vendor/<platform>-<arch>/` and execute them.
 
@@ -22,9 +23,11 @@ vendor/
   darwin-arm64/
     devports
     ports
+    whoisonport
   darwin-x64/
     devports
     ports
+    whoisonport
 ```
 
 If the matching binary is missing, the shim prints a clear error explaining that npm package artifacts are not bundled yet.

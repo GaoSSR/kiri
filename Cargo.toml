@@ -13,6 +13,10 @@ path = "src/bin/devports.rs"
 name = "ports"
 path = "src/bin/ports.rs"
 
+[[bin]]
+name = "whoisonport"
+path = "src/bin/whoisonport.rs"
+
 [dependencies]
 chrono = "0.4"
 ctrlc = "3"

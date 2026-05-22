@@ -13,6 +13,10 @@ pub fn run_from_env() -> i32 {
     run(std::env::args().skip(1))
 }
 
+pub fn run_whoisonport_from_env() -> i32 {
+    run_whoisonport(std::env::args().skip(1))
+}
+
 pub fn run<I, S>(args: I) -> i32
 where
     I: IntoIterator<Item = S>,
@@ -71,6 +75,38 @@ where
         Err(message) => {
             eprintln!("{message}");
             eprintln!("Run `devports --help` for usage.");
+            1
+        }
+    }
+}
+
+pub fn run_whoisonport<I, S>(args: I) -> i32
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let args = args.into_iter().map(Into::into).collect::<Vec<String>>();
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_whoisonport_help();
+        return 0;
+    }
+
+    match parse_args(args) {
+        Ok(Command::PortDetails { port, color_mode }) => {
+            match get_port_details(port) {
+                Some(info) => print!("{}", render_port_detail_with_color_mode(&info, color_mode)),
+                None => println!("No process found listening on :{port}."),
+            }
+            0
+        }
+        Ok(_) => {
+            eprintln!("whoisonport requires a single port number.");
+            eprintln!("Run `whoisonport --help` for usage.");
+            1
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("Run `whoisonport --help` for usage.");
             1
         }
     }
@@ -238,6 +274,16 @@ fn print_help() {
     println!("  devports watch    Monitor developer port changes");
     println!("  devports kill [-f|--force] <port|pid|range> [...]");
     println!("  devports --color <auto|always|never>");
+    println!("  whoisonport <port> Compatibility alias for devports <port>");
+}
+
+fn print_whoisonport_help() {
+    println!("whoisonport - compatibility alias for DevPorts port details");
+    println!();
+    println!("Usage:");
+    println!("  whoisonport <port> [--color <auto|always|never>]");
+    println!();
+    println!("This is a compatibility entrypoint. Prefer `devports <port>` for new usage.");
 }
 
 #[cfg(test)]
@@ -407,5 +453,27 @@ mod tests {
             parse_args(["watch", "extra"]),
             Err("Unknown arguments: extra".to_string())
         );
+    }
+
+    #[test]
+    fn whoisonport_help_is_handled_as_compatibility_alias() {
+        assert_eq!(run_whoisonport(["--help"]), 0);
+    }
+
+    #[test]
+    fn whoisonport_port_arguments_parse_like_devports_details() {
+        assert_eq!(
+            parse_args(["5173", "--color=never"]),
+            Ok(Command::PortDetails {
+                port: 5173,
+                color_mode: ColorMode::Never,
+            })
+        );
+    }
+
+    #[test]
+    fn whoisonport_rejects_non_detail_commands() {
+        assert_eq!(run_whoisonport(["ps"]), 1);
+        assert_eq!(run_whoisonport(Vec::<String>::new()), 1);
     }
 }

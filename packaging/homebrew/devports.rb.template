@@ -20,6 +20,7 @@ class Devports < Formula
   def install
     bin.install "devports"
     bin.install "ports"
+    bin.install "whoisonport"
   end
 
   test do

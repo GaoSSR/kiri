@@ -37,7 +37,7 @@ jobs:
         run: cargo test
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }} --bin devports --bin ports
+        run: cargo build --release --target ${{ matrix.target }} --bin devports --bin ports --bin whoisonport
 
       - name: Package archive
         shell: bash
@@ -50,6 +50,7 @@ jobs:
           mkdir -p "${staging}"
           cp "target/${{ matrix.target }}/release/devports" "${staging}/devports"
           cp "target/${{ matrix.target }}/release/ports" "${staging}/ports"
+          cp "target/${{ matrix.target }}/release/whoisonport" "${staging}/whoisonport"
           cp README.md "${staging}/README.md"
           if [ -f LICENSE ]; then
             cp LICENSE "${staging}/LICENSE"
