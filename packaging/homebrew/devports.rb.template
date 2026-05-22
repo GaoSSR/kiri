@@ -18,12 +18,10 @@ class Devports < Formula
   end
 
   def install
-    bin.install "devports"
     bin.install "ports"
-    bin.install "whoisonport"
   end
 
   test do
-    assert_match "DevPorts", shell_output("#{bin}/devports --help")
+    assert_match "DevPorts", shell_output("#{bin}/ports --help")
   end
 end

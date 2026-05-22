@@ -1,6 +1,7 @@
 use crate::kill::{resolve_target, SystemResolver};
 use crate::platform;
 use std::collections::HashSet;
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -105,7 +106,7 @@ fn execute_logs_command(request: &LogRequest, resolver: &SystemResolver) -> LogC
     let log_files = get_process_log_files(resolved.pid);
 
     if request.stderr_only {
-        let Some(file) = log_files.iter().find(|file| file.fd == LogFd::Stderr) else {
+        let Some(file) = stderr_log_file(&log_files) else {
             output.push_str(&format!(
                 "No stderr redirect found for PID {}\n",
                 resolved.pid
@@ -119,7 +120,7 @@ fn execute_logs_command(request: &LogRequest, resolver: &SystemResolver) -> LogC
         return run_tail(file, request, output);
     }
 
-    if let Some(file) = log_files.first() {
+    if let Some(file) = select_log_file(&log_files) {
         output.push_str(&format!(
             "Tailing {}: {}\n\n",
             log_file_label(file),
@@ -318,6 +319,57 @@ fn sort_and_deduplicate_log_files(mut files: Vec<LogFile>) -> Vec<LogFile> {
         .collect()
 }
 
+fn select_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
+    if should_prompt_log_file_selection(log_files) {
+        prompt_log_file_selection(log_files).or_else(|| auto_select_log_file(log_files))
+    } else {
+        auto_select_log_file(log_files)
+    }
+}
+
+fn should_prompt_log_file_selection(log_files: &[LogFile]) -> bool {
+    log_files.len() > 1 && io::stdin().is_terminal() && io::stdout().is_terminal()
+}
+
+fn prompt_log_file_selection(log_files: &[LogFile]) -> Option<&LogFile> {
+    println!("Multiple log files found:");
+    for (index, file) in log_files.iter().enumerate() {
+        println!(
+            "  {}. {} ({})",
+            index + 1,
+            file.path.display(),
+            log_file_label(file)
+        );
+    }
+    print!("Select log file [1]: ");
+    let _ = io::stdout().flush();
+
+    let mut answer = String::new();
+    if io::stdin().read_line(&mut answer).is_err() {
+        return None;
+    }
+
+    select_log_file_by_number(log_files, &answer)
+}
+
+fn select_log_file_by_number<'a>(log_files: &'a [LogFile], answer: &str) -> Option<&'a LogFile> {
+    let trimmed = answer.trim();
+    if trimmed.is_empty() {
+        return log_files.first();
+    }
+
+    let number = trimmed.parse::<usize>().ok()?;
+    number.checked_sub(1).and_then(|index| log_files.get(index))
+}
+
+fn auto_select_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
+    log_files.first()
+}
+
+fn stderr_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
+    log_files.iter().find(|file| file.fd == LogFd::Stderr)
+}
+
 fn log_fd_rank(fd: LogFd) -> u8 {
     match fd {
         LogFd::Stdout => 0,
@@ -441,7 +493,7 @@ fn get_system_log_command(pid: u32, follow: bool) -> Option<SystemLogCommand> {
 
 fn usage_text() -> String {
     [
-        "  Usage: devports logs <port|pid> [-f|--follow] [--lines N] [--lines=N] [--err]",
+        "  Usage: ports logs <port|pid> [-f|--follow] [--lines N] [--lines=N] [--err]",
         "  Shows log output for a process resolved by listening port or PID.",
         "",
     ]
@@ -538,6 +590,68 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
 
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].fd, LogFd::Stdout);
+    }
+
+    #[test]
+    fn selects_log_file_by_number_for_interactive_choices() {
+        let files = sample_log_files();
+
+        let selected = select_log_file_by_number(&files, "2").unwrap();
+
+        assert_eq!(selected.path, PathBuf::from("/tmp/app.stderr"));
+        assert!(select_log_file_by_number(&files, "9").is_none());
+        assert!(select_log_file_by_number(&files, "abc").is_none());
+    }
+
+    #[test]
+    fn empty_log_selection_defaults_to_first_file() {
+        let files = sample_log_files();
+
+        let selected = select_log_file_by_number(&files, "").unwrap();
+
+        assert_eq!(selected.path, PathBuf::from("/tmp/app.stdout"));
+    }
+
+    #[test]
+    fn non_interactive_auto_selection_uses_deterministic_first_file() {
+        let files = sample_log_files();
+
+        let selected = auto_select_log_file(&files).unwrap();
+
+        assert_eq!(selected.path, PathBuf::from("/tmp/app.stdout"));
+    }
+
+    #[test]
+    fn stderr_flag_prefers_stderr_redirect() {
+        let files = sample_log_files();
+
+        let selected = stderr_log_file(&files).unwrap();
+
+        assert_eq!(selected.fd, LogFd::Stderr);
+        assert_eq!(selected.path, PathBuf::from("/tmp/app.stderr"));
+    }
+
+    fn sample_log_files() -> Vec<LogFile> {
+        vec![
+            LogFile {
+                path: PathBuf::from("/tmp/app.stdout"),
+                fd: LogFd::Stdout,
+                kind: LogFileKind::Redirect,
+                priority: 1,
+            },
+            LogFile {
+                path: PathBuf::from("/tmp/app.stderr"),
+                fd: LogFd::Stderr,
+                kind: LogFileKind::Redirect,
+                priority: 1,
+            },
+            LogFile {
+                path: PathBuf::from("/repo/log/app.log"),
+                fd: LogFd::File,
+                kind: LogFileKind::LogFile,
+                priority: 2,
+            },
+        ]
     }
 
     fn strings<const N: usize>(values: [&str; N]) -> Vec<String> {

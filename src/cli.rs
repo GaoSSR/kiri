@@ -13,10 +13,6 @@ pub fn run_from_env() -> i32 {
     run(std::env::args().skip(1))
 }
 
-pub fn run_whoisonport_from_env() -> i32 {
-    run_whoisonport(std::env::args().skip(1))
-}
-
 pub fn run<I, S>(args: I) -> i32
 where
     I: IntoIterator<Item = S>,
@@ -74,39 +70,7 @@ where
         }
         Err(message) => {
             eprintln!("{message}");
-            eprintln!("Run `devports --help` for usage.");
-            1
-        }
-    }
-}
-
-pub fn run_whoisonport<I, S>(args: I) -> i32
-where
-    I: IntoIterator<Item = S>,
-    S: Into<String>,
-{
-    let args = args.into_iter().map(Into::into).collect::<Vec<String>>();
-    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        print_whoisonport_help();
-        return 0;
-    }
-
-    match parse_args(args) {
-        Ok(Command::PortDetails { port, color_mode }) => {
-            match get_port_details(port) {
-                Some(info) => print!("{}", render_port_detail_with_color_mode(&info, color_mode)),
-                None => println!("No process found listening on :{port}."),
-            }
-            0
-        }
-        Ok(_) => {
-            eprintln!("whoisonport requires a single port number.");
-            eprintln!("Run `whoisonport --help` for usage.");
-            1
-        }
-        Err(message) => {
-            eprintln!("{message}");
-            eprintln!("Run `whoisonport --help` for usage.");
+            eprintln!("Run `ports --help` for usage.");
             1
         }
     }
@@ -265,25 +229,15 @@ fn print_help() {
     println!("DevPorts - inspect local listening ports");
     println!();
     println!("Usage:");
-    println!("  devports          Show developer listening ports");
-    println!("  devports --all    Show all listening ports");
-    println!("  devports <port>   Show port details (Phase 2)");
-    println!("  devports ps       Show running developer processes");
-    println!("  devports logs <port|pid> [-f|--follow] [--lines N] [--err]");
-    println!("  devports clean    Find orphaned/zombie dev processes and ask before killing");
-    println!("  devports watch    Monitor developer port changes");
-    println!("  devports kill [-f|--force] <port|pid|range> [...]");
-    println!("  devports --color <auto|always|never>");
-    println!("  whoisonport <port> Compatibility alias for devports <port>");
-}
-
-fn print_whoisonport_help() {
-    println!("whoisonport - compatibility alias for DevPorts port details");
-    println!();
-    println!("Usage:");
-    println!("  whoisonport <port> [--color <auto|always|never>]");
-    println!();
-    println!("This is a compatibility entrypoint. Prefer `devports <port>` for new usage.");
+    println!("  ports          Show developer listening ports");
+    println!("  ports --all    Show all listening ports");
+    println!("  ports <port>   Show port details");
+    println!("  ports ps       Show running developer processes");
+    println!("  ports logs <port|pid> [-f|--follow] [--lines N] [--err]");
+    println!("  ports clean    Find orphaned/zombie dev processes and ask before killing");
+    println!("  ports watch    Monitor developer port changes");
+    println!("  ports kill [-f|--force] <port|pid|range> [...]");
+    println!("  ports --color <auto|always|never>");
 }
 
 #[cfg(test)]
@@ -456,12 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn whoisonport_help_is_handled_as_compatibility_alias() {
-        assert_eq!(run_whoisonport(["--help"]), 0);
-    }
-
-    #[test]
-    fn whoisonport_port_arguments_parse_like_devports_details() {
+    fn port_arguments_parse_like_ports_details() {
         assert_eq!(
             parse_args(["5173", "--color=never"]),
             Ok(Command::PortDetails {
@@ -469,11 +418,5 @@ mod tests {
                 color_mode: ColorMode::Never,
             })
         );
-    }
-
-    #[test]
-    fn whoisonport_rejects_non_detail_commands() {
-        assert_eq!(run_whoisonport(["ps"]), 1);
-        assert_eq!(run_whoisonport(Vec::<String>::new()), 1);
     }
 }

@@ -6,16 +6,8 @@ description = "DevPorts CLI for inspecting local listening ports"
 license = "MIT"
 
 [[bin]]
-name = "devports"
-path = "src/bin/devports.rs"
-
-[[bin]]
 name = "ports"
 path = "src/bin/ports.rs"
-
-[[bin]]
-name = "whoisonport"
-path = "src/bin/whoisonport.rs"
 
 [dependencies]
 chrono = "0.4"

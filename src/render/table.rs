@@ -170,7 +170,7 @@ fn render_port_table_with_width(
     if ports.is_empty() {
         if filtered {
             output.push_str("No developer listening ports found.\n");
-            output.push_str("Run `devports --all` to show every listener.\n");
+            output.push_str("Run `ports --all` to show every listener.\n");
         } else {
             output.push_str("No listening ports found.\n");
         }
@@ -200,7 +200,7 @@ fn render_port_table_with_width(
     if filtered {
         output.push_str(&format!(
             " - run `{}` `{}` to show everything",
-            colorize("devports", BOLD_CYAN),
+            colorize("ports", BOLD_CYAN),
             colorize("--all", YELLOW)
         ));
     }
@@ -246,7 +246,7 @@ fn render_process_table_with_width(
     if processes.is_empty() {
         if filtered {
             output.push_str("No developer processes found.\n");
-            output.push_str("Run `devports ps --all` to show every process.\n");
+            output.push_str("Run `ports ps --all` to show every process.\n");
         } else {
             output.push_str("No processes found.\n");
         }
@@ -276,7 +276,7 @@ fn render_process_table_with_width(
     if filtered {
         output.push_str(&format!(
             " - run `{}` `{}` `{}` to show everything",
-            colorize("devports", BOLD_CYAN),
+            colorize("ports", BOLD_CYAN),
             colorize("ps", PURPLE),
             colorize("--all", YELLOW)
         ));
@@ -359,6 +359,12 @@ fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> Stri
             terminal_width,
         );
     }
+    push_wrapped_field(
+        &mut output,
+        "Stop",
+        &format!("To stop it, run: ports kill {}", port.port),
+        terminal_width,
+    );
 
     output
 }
@@ -845,7 +851,7 @@ fn push_wrapped_field(output: &mut String, label: &str, value: &str, terminal_wi
         .saturating_sub(LABEL_WIDTH + GAP_WIDTH)
         .max(1);
     let value = if value.is_empty() { "-" } else { value };
-    let lines = wrap_text(value, available);
+    let lines = limit_detail_lines(label, wrap_text(value, available), available);
 
     for (index, line) in lines.iter().enumerate() {
         let line = style_detail_value(label, line);
@@ -856,6 +862,34 @@ fn push_wrapped_field(output: &mut String, label: &str, value: &str, terminal_wi
             output.push_str(&format!("{:<LABEL_WIDTH$}  {line}\n", ""));
         }
     }
+}
+
+fn limit_detail_lines(label: &str, mut lines: Vec<String>, width: usize) -> Vec<String> {
+    let Some(max_lines) = detail_line_limit(label) else {
+        return lines;
+    };
+
+    if lines.len() <= max_lines {
+        return lines;
+    }
+
+    lines.truncate(max_lines);
+    if let Some(last) = lines.last_mut() {
+        *last = append_ellipsis(last, width);
+    }
+    lines
+}
+
+fn detail_line_limit(label: &str) -> Option<usize> {
+    match label {
+        "Command" => Some(6),
+        "Directory" | "Image" => Some(3),
+        _ => None,
+    }
+}
+
+fn append_ellipsis(value: &str, width: usize) -> String {
+    truncate_to_width(&format!("{value}..."), width)
 }
 
 fn style_detail_value(label: &str, value: &str) -> String {
@@ -1257,7 +1291,7 @@ mod tests {
         let output = render_port_table_with_width(&[port], true, 100);
 
         assert!(output.contains("\x1b[1;32m1\x1b[0m port active"));
-        assert!(output.contains("\x1b[1;36mdevports\x1b[0m"));
+        assert!(output.contains("\x1b[1;36mports\x1b[0m"));
         assert!(output.contains("\x1b[1;33m--all\x1b[0m"));
     }
 
@@ -1302,6 +1336,56 @@ mod tests {
                 strip_ansi_codes(line)
             );
         }
+    }
+
+    #[test]
+    fn detail_output_caps_very_long_command_values() {
+        let classpath = (0..40)
+            .map(|index| format!("/Users/dev/.m2/repository/group/lib-{index}.jar"))
+            .collect::<Vec<_>>()
+            .join(":");
+        let command = format!("java -cp {classpath} com.example.Main");
+        let port = sample_port("backend", &command);
+
+        let output = render_port_detail_with_width(&port, 72);
+        let plain = strip_ansi_codes(&output);
+        let mut command_lines = Vec::new();
+        let mut inside_command = false;
+
+        for line in plain.lines() {
+            if line.starts_with("Command") {
+                inside_command = true;
+            } else if line.starts_with("Memory") {
+                inside_command = false;
+            }
+
+            if inside_command {
+                command_lines.push(line.to_string());
+            }
+        }
+
+        assert_eq!(command_lines.len(), 6);
+        assert!(command_lines
+            .last()
+            .is_some_and(|line| line.contains("...")));
+        for line in output.lines() {
+            assert!(
+                visible_width(line) <= 72,
+                "line exceeded width: {}",
+                strip_ansi_codes(line)
+            );
+        }
+    }
+
+    #[test]
+    fn detail_output_shows_explicit_ports_kill_hint_without_interaction() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = render_port_detail_with_color_mode(&port, ColorMode::Never);
+
+        assert!(output.contains("To stop it, run: ports kill 5173"));
+        assert!(!output.contains("Kill process on"));
+        assert!(!output.contains("[y/N]"));
     }
 
     fn table_row(cells: [&str; COLUMN_COUNT]) -> TableRow {

@@ -5,7 +5,7 @@ This document defines the intended release packaging plan for DevPorts. It does 
 ## Goals
 
 - Give normal users installation paths that do not require Rust or Cargo.
-- Keep `devports` as the primary command, `ports` as the short command, and `whoisonport` as a compatibility detail alias.
+- Ship one public command: `ports`.
 - Ship reproducible, versioned binaries from GitHub Releases.
 - Avoid asking end users to compile from source.
 - Keep Cargo usage limited to maintainers, CI, and local build/test workflows.
@@ -18,14 +18,12 @@ The npm package should be the most familiar cross-platform install entry:
 npm install -g devports
 ```
 
-The package must expose three bins:
+The package name can be `devports`, but the installed command must be `ports`:
 
 ```json
 {
   "bin": {
-    "devports": "./bin/devports.js",
-    "ports": "./bin/ports.js",
-    "whoisonport": "./bin/whoisonport.js"
+    "ports": "./bin/ports.js"
   }
 }
 ```
@@ -34,14 +32,14 @@ Recommended implementation:
 
 - Build release binaries in CI for each supported target.
 - Attach binaries to a GitHub Release.
-- Make the npm package install script download the matching platform binary from GitHub Releases.
-- Keep `bin/devports`, `bin/ports`, and `bin/whoisonport` as small shims that execute the downloaded binary.
+- Make the npm package install script download the matching platform binary from GitHub Releases, or bundle platform-specific binaries through optional packages.
+- Keep `bin/ports` as a small shim that executes the downloaded or bundled binary.
 - Do not compile Rust during `npm install`.
 
 Current scaffold:
 
-- `packaging/npm/package.json` declares the future `devports` package and exposes `devports`, `ports`, and `whoisonport` bins.
-- `packaging/npm/bin/devports.js`, `packaging/npm/bin/ports.js`, and `packaging/npm/bin/whoisonport.js` are Node shims.
+- `packaging/npm/package.json` declares the future `devports` package and exposes the `ports` bin.
+- `packaging/npm/bin/ports.js` is the Node shim.
 - `packaging/npm/lib/resolve-binary.js` locates a precompiled binary under `vendor/<platform>-<arch>/`.
 - The shim fails with a clear message if package artifacts are not bundled yet.
 - The package is marked `private` until the release process is wired and the package name is confirmed.
@@ -58,15 +56,15 @@ Alternative implementation:
 
 - Publish platform-specific npm packages such as `devports-darwin-arm64` and `devports-linux-x64`.
 - Make the top-level `devports` package depend on the matching optional package.
-- Still expose `devports`, `ports`, and `whoisonport` commands.
+- Still expose only the `ports` command.
 
 Open decisions before npm release:
 
-- Final npm package name availability.
+- Final npm package ownership and package name availability.
 - Supported platform matrix for the first public release.
 - Binary download URL layout.
 - Install script behavior when the current platform is unsupported.
-- Whether `ports` should be installed by default or documented as a possible command-name conflict.
+- Release-note handling for possible `ports` command-name conflicts.
 
 ## Homebrew Formula Plan
 
@@ -87,15 +85,14 @@ brew install <tap-owner>/tap/devports
 Recommended formula behavior:
 
 - Download a versioned GitHub Release artifact.
-- Install the `devports` binary into `bin`.
-- Install `ports` and `whoisonport` as additional binaries.
-- Run a smoke test such as `system "#{bin}/devports", "--help"` once help output is stable.
+- Install the `ports` binary into `bin`.
+- Run a smoke test such as `system "#{bin}/ports", "--help"` once help output is stable.
 
 Current scaffold:
 
 - `packaging/homebrew/devports.rb.template` is a template only.
 - It uses GitHub Release URL placeholders.
-- It installs `devports`, `ports`, and `whoisonport`.
+- It installs `ports`.
 - Its `sha256` values are placeholders and must not be used for a real formula.
 - No tap is created in this phase.
 
@@ -109,7 +106,6 @@ Open decisions before Homebrew release:
 - Homebrew core vs tap.
 - Formula name and tap owner.
 - SHA256 checksums for release artifacts.
-- Whether the formula installs `ports` directly or as a symlink.
 
 ## GitHub Releases Plan
 
@@ -125,9 +121,7 @@ Recommended artifacts:
 
 Each archive should include:
 
-- `devports`
-- `ports` or install instructions for a `ports` symlink
-- `whoisonport` compatibility alias
+- `ports`
 - `README.md`
 - License file when one exists
 - Checksums
@@ -136,7 +130,7 @@ Release checklist:
 
 - Run `cargo fmt`.
 - Run `cargo test`.
-- Run macOS smoke checks for `devports`, `ports`, `whoisonport`, `--all`, `--color never`, and `--color always`.
+- Run macOS smoke checks for `ports`, `--all`, `--color never`, and `--color always`.
 - Build release binaries.
 - Generate checksums.
 - Attach archives and checksums to the GitHub Release.
@@ -148,8 +142,8 @@ Current scaffold:
 - The workflow is macOS-first because macOS is the only platform with real collection support today.
 - It builds `aarch64-apple-darwin` and `x86_64-apple-darwin` artifacts.
 - It runs `cargo test`.
-- It runs `cargo build --release --target <target> --bin devports --bin ports --bin whoisonport`.
-- It packages all three binaries plus README into target-specific tarballs.
+- It runs `cargo build --release --target <target> --bin ports`.
+- It packages the `ports` binary plus README into target-specific tarballs.
 - It generates per-artifact SHA256 files and combines them into `checksums.txt`.
 - It uploads the tarballs and `checksums.txt` to the GitHub Release.
 
@@ -176,7 +170,6 @@ For README usage, Cargo commands belong only in maintainer build and test sectio
 - Wire npm packaging to download or bundle the GitHub Release artifacts.
 - Replace Homebrew formula placeholders with real release URLs and SHA256 values.
 - Decide how to handle `ports` command conflicts in release notes.
-- Decide whether `whoisonport` needs separate release-note mention as a compatibility alias.
 - Add stable `--help` output suitable for package smoke tests.
 - Add a license file if the repository is distributed publicly.
 - Confirm whether Linux and Windows should stay documented as TODO until their collectors are implemented.

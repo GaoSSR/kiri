@@ -1,15 +1,16 @@
 # DevPorts
 
-DevPorts is a Rust CLI for inspecting local listening ports during development. It shows the process, PID, project, detected framework, uptime, and status behind each listening port, with Docker host-port mapping and readable terminal output.
+DevPorts is a Rust CLI for inspecting local listening ports during development. The product name is DevPorts, but the public command is `ports`.
 
-The primary command is `devports`. The short command `ports` is also installed and runs the same logic. `whoisonport` is provided as a compatibility alias for port detail lookup.
+DevPorts shows the process, PID, project, detected framework, uptime, and status behind each listening port. It also supports Docker host-port mapping, safe explicit kill, process listing, log lookup, clean, watch, and readable color-controlled terminal output.
 
 ## Why This Exists
 
-DevPorts is a Rust migration and refactor of the existing JavaScript project `port-whisperer`. The source project is the behavior baseline, not just inspiration: DevPorts preserves the core CLI workflows around developer-port discovery, `--all`, port details, Docker mapping, framework detection, and safe process termination.
+DevPorts is a Rust migration and refactor of the existing JavaScript project `port-whisperer`. The source project is the behavior baseline: DevPorts preserves the core CLI workflows around developer-port discovery, `--all`, port details, Docker mapping, framework detection, logs, clean, watch, and safe process termination.
 
-This first Rust version intentionally changes the delivery shape:
+This Rust version intentionally changes a few product decisions:
 
+- The public command is `ports`.
 - CLI only for now.
 - macOS is the first fully implemented platform.
 - Display is redesigned as a width-aware, high-contrast, color-controlled CLI table.
@@ -17,15 +18,15 @@ This first Rust version intentionally changes the delivery shape:
 
 ## Current Features
 
-- `devports`, `ports`, and `whoisonport` commands.
+- `ports` command.
 - Default view shows developer-relevant listening ports only.
 - `--all` shows every listening TCP port found by the platform collector.
-- `devports <port>` shows a detail page for one listening port.
-- `devports kill <target...>` terminates listeners by port, range, or PID fallback.
-- `devports ps` shows developer-related running processes.
-- `devports logs <port|pid>` shows process log output when log files or system logs are available.
-- `devports clean` lists orphaned/zombie developer processes and asks before killing.
-- `devports watch` streams port start/stop events.
+- `ports <port>` shows a detail page for one listening port.
+- `ports kill <target...>` terminates listeners by port, range, or PID fallback.
+- `ports ps` shows developer-related running processes.
+- `ports logs <port|pid>` shows process log output when log files or system logs are available.
+- `ports clean` lists orphaned/zombie developer processes and asks before killing.
+- `ports watch` streams port start/stop events.
 - `-f` / `--force` uses `SIGKILL`; default kill uses `SIGTERM`.
 - Docker host-port mapping from running containers.
 - Docker image identification for common services such as PostgreSQL, Redis, MySQL, MongoDB, nginx, LocalStack, RabbitMQ, Kafka, Elasticsearch, and MinIO.
@@ -55,105 +56,93 @@ brew install <tap-owner>/tap/devports
 
 DevPorts has not been published to npm or Homebrew yet. These are the intended user-facing install commands for the first public release, not a claim that the package or formula is already available.
 
-After installation, verify the binaries are available:
+After installation, verify the command is available:
 
 ```bash
-which devports
 which ports
-which whoisonport
-devports --color never
 ports --color never
-whoisonport --help
 ```
 
-If both npm and Homebrew versions are installed, `PATH` order decides which `devports` or `ports` binary runs.
-
-The short command `ports` can also conflict with an older npm install of `port-whisperer`. If your system already has a `ports` command, the one that runs depends on `PATH` order. Use `which ports` to check what will execute. The primary `devports` command avoids that common name collision.
+The command `ports` can conflict with an older npm install of `port-whisperer` or another local tool. If your system already has a `ports` command, the one that runs depends on `PATH` order. Use `which ports` to check what will execute.
 
 ## Usage
 
 Show developer-relevant listening ports:
 
 ```bash
-devports
 ports
 ```
 
 Show all listening ports:
 
 ```bash
-devports --all
 ports --all
 ```
 
 Show details for one port:
 
 ```bash
-devports 3000
 ports 3000
-whoisonport 3000
 ```
 
-`devports <port>` and `whoisonport <port>` only display details. They do not ask whether to kill the process.
+`ports <port>` only displays details. It does not ask whether to kill the process.
 
 Show developer-related running processes:
 
 ```bash
-devports ps
 ports ps
-devports ps --all
+ports ps --all
 ```
 
 Show process logs by port or PID:
 
 ```bash
-devports logs 3000
-devports logs 3000 --lines 10
-devports logs 3000 --lines=10
-devports logs 3000 --err
-devports logs 3000 --follow
+ports logs 3000
+ports logs 3000 --lines 10
+ports logs 3000 --lines=10
+ports logs 3000 --err
+ports logs 3000 --follow
 ```
+
+If multiple log files are found, DevPorts asks you to choose in a real terminal. In non-interactive output, it selects the best match by deterministic priority.
 
 Clean orphaned/zombie developer processes:
 
 ```bash
-devports clean
 ports clean
 ```
 
-`devports clean` lists candidates and asks for confirmation before sending any signal.
+`ports clean` lists candidates and asks for confirmation before sending any signal.
 
 Watch port changes:
 
 ```bash
-devports watch
 ports watch
 ```
 
 Kill must be explicit:
 
 ```bash
-devports kill 3000
 ports kill 3000
 ```
 
 Kill multiple targets:
 
 ```bash
-devports kill 3000 5173 8080
+ports kill 3000 5173 8080
 ```
 
 Kill a port range:
 
 ```bash
-devports kill 3000-3010
+ports kill 3000-3010
 ```
 
 Force kill:
 
 ```bash
-devports kill --force 3000
-devports kill -f 3000
+ports kill --force 3000
+ports kill -f 3000
 ```
 
 If a numeric target is not a listening port and the PID exists, DevPorts falls back to killing that PID.
@@ -163,9 +152,9 @@ If a numeric target is not a listening port and the PID exists, DevPorts falls b
 DevPorts defaults to `--color auto`.
 
 ```bash
-devports --color auto
-devports --color always
-devports --color never
+ports --color auto
+ports --color always
+ports --color never
 ```
 
 - `auto`: color is enabled for a real terminal and disabled for non-TTY output.
@@ -176,7 +165,7 @@ The table avoids forced white primary text so it remains readable on both light 
 
 ## Kill Safety
 
-`devports kill` resolves targets before sending signals:
+`ports kill` resolves targets before sending signals:
 
 - A matching listening port is preferred.
 - Port ranges are expanded one port at a time.
@@ -184,7 +173,7 @@ The table avoids forced white primary text so it remains readable on both light 
 - If a numeric target is not a listening port, DevPorts checks whether it is an existing PID.
 - Invalid targets, reversed ranges, oversized ranges, and ports outside `1-65535` return clear errors.
 
-Details mode never performs kill. Use `devports kill <target>` when you intend to terminate a process.
+Details mode never performs kill. Use `ports kill <target>` when you intend to terminate a process.
 
 ## Platform Support
 
@@ -198,9 +187,9 @@ On macOS, DevPorts uses:
 
 - `lsof -iTCP -sTCP:LISTEN -P -n` for listening TCP ports.
 - `ps -p <pidList> -o pid=,ppid=,stat=,rss=,lstart=,command=` for process details.
-- `ps -eo pid=,pcpu=,pmem=,rss=,lstart=,command=` for `devports ps`.
+- `ps -eo pid=,pcpu=,pmem=,rss=,lstart=,command=` for `ports ps`.
 - `lsof -a -d cwd -p <pidList>` for current working directories.
-- `lsof -p <pid>` plus `tail` and macOS `log show` / `log stream` for `devports logs`.
+- `lsof -p <pid>` plus `tail` and macOS `log show` / `log stream` for `ports logs`.
 - `docker ps --format "{{.Ports}}\t{{.Names}}\t{{.Image}}"` for Docker host-port mappings when Docker is available.
 
 Docker is optional. If Docker is unavailable or no containers are running, DevPorts silently continues without Docker mappings.
@@ -215,18 +204,18 @@ This first CLI release does not implement:
 - Complete Linux or Windows support.
 - Docker logs or process tree views.
 - Published npm package or Homebrew formula. Those release packages are planned but not available yet.
+- Secondary command aliases; the public command is `ports`.
 
 ## Differences From port-whisperer
 
-DevPorts keeps the core behavior but changes the implementation and first-release boundary:
+DevPorts keeps the source project's useful behavior but changes implementation and product boundaries:
 
-- Rust CLI instead of JavaScript/npm package.
-- `devports` is the primary command; `ports` is kept as the short alias.
+- Rust CLI instead of JavaScript runtime implementation.
+- Public command is `ports`.
 - macOS is implemented first; Linux and Windows are not claimed as complete.
 - Port detail view is read-only and never prompts to kill.
-- Kill is only performed through explicit `devports kill <target...>`.
-- `whoisonport` is kept as a compatibility detail alias only; new usage should prefer `devports <port>`.
-- `logs` uses deterministic log file selection when multiple files are found instead of an interactive picker.
+- Kill is only performed through explicit `ports kill <target...>`.
+- `logs` supports interactive multi-file selection in a real terminal and deterministic selection in non-interactive output.
 - Color output is controlled with `--color auto|always|never`.
 - Terminal rendering is width-aware and avoids low-contrast primary data.
 
@@ -237,7 +226,7 @@ For maintainers and contributors working from source:
 ```bash
 cargo fmt
 cargo test
-cargo run --bin devports -- --color never
-cargo run --bin devports -- --all --color never
 cargo run --bin ports -- --color never
+cargo run --bin ports -- --all --color never
+cargo run --bin ports -- ps --color never
 ```

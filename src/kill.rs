@@ -351,9 +351,9 @@ fn resolved_label(resolved: &ResolvedTarget) -> String {
 
 fn usage_text() -> String {
     [
-        "  Usage: devports kill [-f|--force] <port|pid|range> [port|pid|range...]",
+        "  Usage: ports kill [-f|--force] <port|pid|range> [port|pid|range...]",
         "  Kills listener on port (1-65535), or process by PID. Use -f for SIGKILL.",
-        "  Ranges: devports kill 3000-3010",
+        "  Ranges: ports kill 3000-3010",
         "",
     ]
     .join("\n")
