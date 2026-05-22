@@ -1,5 +1,6 @@
 use crate::dev_process::is_developer_process;
 use crate::docker::{batch_docker_info, detect_framework_from_image, DockerInfo};
+use crate::framework::{detect_framework, detect_framework_from_command};
 use crate::model::{PortInfo, ProcessStatus, RawListenerEntry, RawProcessInfo};
 use crate::platform;
 use chrono::{Local, NaiveDateTime, TimeZone};
@@ -67,6 +68,12 @@ fn enrich_entries(
                 }
 
                 info.uptime = format_uptime_from_lstart(&process.lstart);
+
+                if info.framework.is_none() {
+                    info.framework =
+                        detect_framework_from_command(&process.command, &info.process.name)
+                            .map(ToOwned::to_owned);
+                }
             }
 
             if let Some(docker) = docker_map.get(&info.port) {
@@ -78,6 +85,9 @@ fn enrich_entries(
                 info.cwd = None;
             } else if let Some(cwd) = cwd_map.get(&info.process.pid) {
                 let project_root = find_project_root(cwd);
+                if info.framework.is_none() {
+                    info.framework = detect_framework(&project_root).map(ToOwned::to_owned);
+                }
                 info.project_name = project_root
                     .file_name()
                     .and_then(|name| name.to_str())
@@ -214,6 +224,14 @@ mod tests {
 
     #[test]
     fn docker_mapping_overrides_process_project_and_framework() {
+        let project = unique_temp_dir("devports-docker-project");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"dependencies":{"next":"latest"}}"#,
+        )
+        .unwrap();
+
         let entries = vec![RawListenerEntry {
             port: 5432,
             pid: 900,
@@ -231,7 +249,7 @@ mod tests {
             },
         );
         let mut cwd = HashMap::new();
-        cwd.insert(900, PathBuf::from("/Users/dev"));
+        cwd.insert(900, project);
         let mut docker = HashMap::new();
         docker.insert(
             5432,
@@ -249,6 +267,60 @@ mod tests {
         assert_eq!(info.framework.as_deref(), Some("PostgreSQL"));
         assert_eq!(info.docker_image.as_deref(), Some("postgres:16"));
         assert!(info.cwd.is_none());
+    }
+
+    #[test]
+    fn non_docker_listener_detects_framework_from_command() {
+        let entries = vec![RawListenerEntry {
+            port: 5173,
+            pid: 902,
+            process_name: "node".to_string(),
+        }];
+        let mut processes = HashMap::new();
+        processes.insert(
+            902,
+            RawProcessInfo {
+                ppid: 100,
+                stat: "S".to_string(),
+                rss_kb: 2048,
+                lstart: "May 22 09:00:00 2026".to_string(),
+                command: "pnpm vite --host 0.0.0.0".to_string(),
+            },
+        );
+        let cwd = HashMap::new();
+        let docker = HashMap::new();
+
+        let ports = enrich_entries(entries, &processes, &cwd, &docker);
+        let info = &ports[0];
+
+        assert_eq!(info.framework.as_deref(), Some("Vite"));
+    }
+
+    #[test]
+    fn non_docker_listener_detects_framework_from_project_root() {
+        let project = unique_temp_dir("devports-non-docker-package-project");
+        let nested = project.join("apps/web/src");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(
+            project.join("package.json"),
+            r#"{"dependencies":{"next":"latest"}}"#,
+        )
+        .unwrap();
+
+        let entries = vec![RawListenerEntry {
+            port: 3000,
+            pid: 903,
+            process_name: "node".to_string(),
+        }];
+        let processes = HashMap::new();
+        let mut cwd = HashMap::new();
+        cwd.insert(903, nested);
+        let docker = HashMap::new();
+
+        let ports = enrich_entries(entries, &processes, &cwd, &docker);
+        let info = &ports[0];
+
+        assert_eq!(info.framework.as_deref(), Some("Next.js"));
     }
 
     #[test]
@@ -276,7 +348,7 @@ mod tests {
             info.project_name.as_deref(),
             project.file_name().and_then(|name| name.to_str())
         );
-        assert!(info.framework.is_none());
+        assert_eq!(info.framework.as_deref(), Some("Rust"));
         assert!(info.docker_image.is_none());
     }
 

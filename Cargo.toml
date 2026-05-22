@@ -7,3 +7,4 @@ license = "MIT"
 
 [dependencies]
 chrono = "0.4"
+serde_json = "1"
