@@ -1,4 +1,5 @@
 use crate::kill::run_kill_command;
+use crate::logs::run_logs_command;
 use crate::process::get_all_processes;
 use crate::render::table::{
     render_port_detail_with_color_mode, render_port_table_with_color_mode,
@@ -50,6 +51,11 @@ where
             );
             0
         }
+        Ok(Command::Logs { args }) => {
+            let outcome = run_logs_command(&args);
+            print!("{}", outcome.output);
+            outcome.exit_code
+        }
         Ok(Command::Help) => {
             print_help();
             0
@@ -78,6 +84,9 @@ enum Command {
     Ps {
         show_all: bool,
         color_mode: ColorMode,
+    },
+    Logs {
+        args: Vec<String>,
     },
     Help,
 }
@@ -115,6 +124,10 @@ where
                 show_all,
                 color_mode,
             })
+        }
+        "logs" => {
+            let logs_args = args.into_iter().skip(1).collect();
+            Ok(Command::Logs { args: logs_args })
         }
         command => {
             if args.len() > 1 {
@@ -198,6 +211,7 @@ fn print_help() {
     println!("  devports --all    Show all listening ports");
     println!("  devports <port>   Show port details (Phase 2)");
     println!("  devports ps       Show running developer processes");
+    println!("  devports logs <port|pid> [-f|--follow] [--lines N] [--err]");
     println!("  devports kill [-f|--force] <port|pid|range> [...]");
     println!("  devports --color <auto|always|never>");
 }
@@ -328,6 +342,17 @@ mod tests {
             parse_args(["kill", "3000"]),
             Ok(Command::Kill {
                 args: vec!["3000".to_string()]
+            })
+        );
+        assert_eq!(
+            parse_args(["logs", "3000", "--lines", "5", "--err"]),
+            Ok(Command::Logs {
+                args: vec![
+                    "3000".to_string(),
+                    "--lines".to_string(),
+                    "5".to_string(),
+                    "--err".to_string()
+                ]
             })
         );
     }
