@@ -57,7 +57,11 @@ brew install gaossr/tap/kiri
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
 
-The npm package name is reserved, but npm installation is not published yet because the package does not bundle release binaries.
+The npm package is packaged with precompiled macOS binaries in GitHub Release assets, but it is not available from npmjs yet because the `@gaossr/kiri` npm package or trusted publisher permission is not configured on npm. After npm scope/package permission is configured, the publish workflow can release:
+
+```bash
+npm install -g @gaossr/kiri
+```
 
 Windows PowerShell is planned, but Windows runtime support is not available until the Windows collector and release artifacts ship:
 

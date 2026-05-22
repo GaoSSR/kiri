@@ -57,7 +57,11 @@ brew install gaossr/tap/kiri
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
 
-npm 包名已预留，但当前还没有发布 npm 安装入口，因为 npm 包还没有内置 release 二进制。
+npm 包已经在 GitHub Release assets 中打包了预编译 macOS 二进制，但 npmjs 还不能安装，因为 npm 侧还没有配置 `@gaossr/kiri` 包或 trusted publisher 权限。等 npm scope/package 权限配置好后，当前发布 workflow 可以发布：
+
+```bash
+npm install -g @gaossr/kiri
+```
 
 Windows PowerShell 入口已规划，但在 Windows collector 和 release artifact 交付前，脚本会明确提示暂不支持：
 
