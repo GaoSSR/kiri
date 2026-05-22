@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod dev_process;
+pub mod docker;
 pub mod kill;
 pub mod model;
 pub mod platform;

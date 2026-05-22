@@ -21,7 +21,7 @@ pub fn render_port_table(ports: &[PortInfo], filtered: bool) -> String {
         return output;
     }
 
-    let rows: Vec<[String; 6]> = ports
+    let rows: Vec<[String; 7]> = ports
         .iter()
         .map(|port| {
             [
@@ -32,6 +32,10 @@ pub fn render_port_table(ports: &[PortInfo], filtered: bool) -> String {
                     .as_deref()
                     .map(|name| truncate(name, 24))
                     .unwrap_or_else(|| "-".to_string()),
+                port.framework
+                    .as_deref()
+                    .map(|framework| truncate(framework, 18))
+                    .unwrap_or_else(|| "-".to_string()),
                 port.uptime.clone().unwrap_or_else(|| "-".to_string()),
                 port.status.as_str().to_string(),
             ]
@@ -39,13 +43,29 @@ pub fn render_port_table(ports: &[PortInfo], filtered: bool) -> String {
         .collect();
 
     let widths = column_widths(
-        &["PORT", "PROCESS", "PID", "PROJECT", "UPTIME", "STATUS"],
+        &[
+            "PORT",
+            "PROCESS",
+            "PID",
+            "PROJECT",
+            "FRAMEWORK",
+            "UPTIME",
+            "STATUS",
+        ],
         &rows,
     );
     push_row(
         &mut output,
         &widths,
-        ["PORT", "PROCESS", "PID", "PROJECT", "UPTIME", "STATUS"],
+        [
+            "PORT",
+            "PROCESS",
+            "PID",
+            "PROJECT",
+            "FRAMEWORK",
+            "UPTIME",
+            "STATUS",
+        ],
         true,
     );
     push_separator(&mut output, &widths);
@@ -53,7 +73,9 @@ pub fn render_port_table(ports: &[PortInfo], filtered: bool) -> String {
         push_row(
             &mut output,
             &widths,
-            [&row[0], &row[1], &row[2], &row[3], &row[4], &row[5]],
+            [
+                &row[0], &row[1], &row[2], &row[3], &row[4], &row[5], &row[6],
+            ],
             false,
         );
     }
@@ -108,6 +130,23 @@ pub fn render_port_detail(port: &PortInfo) -> String {
         "Project",
         port.project_name.as_deref().unwrap_or("-"),
     );
+    push_field(
+        &mut output,
+        "Framework",
+        port.framework.as_deref().unwrap_or("-"),
+    );
+    if port.docker_container.is_some() || port.docker_image.is_some() {
+        push_field(
+            &mut output,
+            "Container",
+            port.docker_container.as_deref().unwrap_or("-"),
+        );
+        push_field(
+            &mut output,
+            "Image",
+            port.docker_image.as_deref().unwrap_or("-"),
+        );
+    }
 
     output
 }
@@ -116,7 +155,7 @@ fn push_field(output: &mut String, label: &str, value: &str) {
     output.push_str(&format!("{label:<10}  {value}\n"));
 }
 
-fn column_widths(headers: &[&str; 6], rows: &[[String; 6]]) -> [usize; 6] {
+fn column_widths(headers: &[&str; 7], rows: &[[String; 7]]) -> [usize; 7] {
     let mut widths = [
         headers[0].len(),
         headers[1].len(),
@@ -124,6 +163,7 @@ fn column_widths(headers: &[&str; 6], rows: &[[String; 6]]) -> [usize; 6] {
         headers[3].len(),
         headers[4].len(),
         headers[5].len(),
+        headers[6].len(),
     ];
 
     for row in rows {
@@ -135,7 +175,7 @@ fn column_widths(headers: &[&str; 6], rows: &[[String; 6]]) -> [usize; 6] {
     widths
 }
 
-fn push_row<T>(output: &mut String, widths: &[usize; 6], cells: [T; 6], header: bool)
+fn push_row<T>(output: &mut String, widths: &[usize; 7], cells: [T; 7], header: bool)
 where
     T: AsRef<str>,
 {
@@ -143,28 +183,31 @@ where
         output.push_str(BOLD);
     }
     output.push_str(&format!(
-        "{:<w0$}  {:<w1$}  {:>w2$}  {:<w3$}  {:<w4$}  {:<w5$}\n",
+        "{:<w0$}  {:<w1$}  {:>w2$}  {:<w3$}  {:<w4$}  {:<w5$}  {:<w6$}\n",
         cells[0].as_ref(),
         cells[1].as_ref(),
         cells[2].as_ref(),
         cells[3].as_ref(),
         cells[4].as_ref(),
         cells[5].as_ref(),
+        cells[6].as_ref(),
         w0 = widths[0],
         w1 = widths[1],
         w2 = widths[2],
         w3 = widths[3],
         w4 = widths[4],
         w5 = widths[5],
+        w6 = widths[6],
     ));
     if header {
         output.push_str(RESET);
     }
 }
 
-fn push_separator(output: &mut String, widths: &[usize; 6]) {
+fn push_separator(output: &mut String, widths: &[usize; 7]) {
     output.push_str(&format!(
-        "{:-<w0$}  {:-<w1$}  {:-<w2$}  {:-<w3$}  {:-<w4$}  {:-<w5$}\n",
+        "{:-<w0$}  {:-<w1$}  {:-<w2$}  {:-<w3$}  {:-<w4$}  {:-<w5$}  {:-<w6$}\n",
+        "",
         "",
         "",
         "",
@@ -177,6 +220,7 @@ fn push_separator(output: &mut String, widths: &[usize; 6]) {
         w3 = widths[3],
         w4 = widths[4],
         w5 = widths[5],
+        w6 = widths[6],
     ));
 }
 

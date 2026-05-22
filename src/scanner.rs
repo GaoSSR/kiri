@@ -1,8 +1,9 @@
 use crate::dev_process::is_developer_process;
-use crate::model::{PortInfo, ProcessStatus, RawListenerEntry};
+use crate::docker::{batch_docker_info, detect_framework_from_image, DockerInfo};
+use crate::model::{PortInfo, ProcessStatus, RawListenerEntry, RawProcessInfo};
 use crate::platform;
 use chrono::{Local, NaiveDateTime, TimeZone};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub fn get_listening_ports(show_all: bool) -> Vec<PortInfo> {
@@ -22,7 +23,25 @@ fn collect_ports() -> Vec<PortInfo> {
     let pids = unique_pids(&entries);
     let process_map = platform::batch_process_info(&pids);
     let cwd_map = platform::batch_cwd(&pids);
+    let has_docker = entries.iter().any(|entry| {
+        let name = entry.process_name.to_ascii_lowercase();
+        name.starts_with("com.docke") || name == "docker"
+    });
+    let docker_map = if has_docker {
+        batch_docker_info()
+    } else {
+        HashMap::new()
+    };
 
+    enrich_entries(entries, &process_map, &cwd_map, &docker_map)
+}
+
+fn enrich_entries(
+    entries: Vec<RawListenerEntry>,
+    process_map: &HashMap<u32, RawProcessInfo>,
+    cwd_map: &HashMap<u32, PathBuf>,
+    docker_map: &HashMap<u16, DockerInfo>,
+) -> Vec<PortInfo> {
     let mut ports: Vec<PortInfo> = entries
         .into_iter()
         .map(|entry| {
@@ -50,7 +69,14 @@ fn collect_ports() -> Vec<PortInfo> {
                 info.uptime = format_uptime_from_lstart(&process.lstart);
             }
 
-            if let Some(cwd) = cwd_map.get(&info.process.pid) {
+            if let Some(docker) = docker_map.get(&info.port) {
+                info.process.name = "docker".to_string();
+                info.project_name = Some(docker.name.clone());
+                info.framework = Some(detect_framework_from_image(&docker.image).to_string());
+                info.docker_container = Some(docker.name.clone());
+                info.docker_image = Some(docker.image.clone());
+                info.cwd = None;
+            } else if let Some(cwd) = cwd_map.get(&info.process.pid) {
                 let project_root = find_project_root(cwd);
                 info.project_name = project_root
                     .file_name()
@@ -184,6 +210,74 @@ mod tests {
         let found = find_project_root(&cwd);
 
         assert_eq!(found, cwd);
+    }
+
+    #[test]
+    fn docker_mapping_overrides_process_project_and_framework() {
+        let entries = vec![RawListenerEntry {
+            port: 5432,
+            pid: 900,
+            process_name: "com.docker.backend".to_string(),
+        }];
+        let mut processes = HashMap::new();
+        processes.insert(
+            900,
+            RawProcessInfo {
+                ppid: 1,
+                stat: "S".to_string(),
+                rss_kb: 2048,
+                lstart: "May 22 09:00:00 2026".to_string(),
+                command: "/Applications/Docker.app/Contents/MacOS/com.docker.backend".to_string(),
+            },
+        );
+        let mut cwd = HashMap::new();
+        cwd.insert(900, PathBuf::from("/Users/dev"));
+        let mut docker = HashMap::new();
+        docker.insert(
+            5432,
+            DockerInfo {
+                name: "backend-postgres-1".to_string(),
+                image: "postgres:16".to_string(),
+            },
+        );
+
+        let ports = enrich_entries(entries, &processes, &cwd, &docker);
+        let info = &ports[0];
+
+        assert_eq!(info.process.name, "docker");
+        assert_eq!(info.project_name.as_deref(), Some("backend-postgres-1"));
+        assert_eq!(info.framework.as_deref(), Some("PostgreSQL"));
+        assert_eq!(info.docker_image.as_deref(), Some("postgres:16"));
+        assert!(info.cwd.is_none());
+    }
+
+    #[test]
+    fn non_docker_listener_keeps_existing_cwd_project_behavior() {
+        let project = unique_temp_dir("devports-non-docker-project");
+        let nested = project.join("src");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(project.join("Cargo.toml"), "[package]\nname = \"sample\"\n").unwrap();
+
+        let entries = vec![RawListenerEntry {
+            port: 8080,
+            pid: 901,
+            process_name: "java".to_string(),
+        }];
+        let processes = HashMap::new();
+        let mut cwd = HashMap::new();
+        cwd.insert(901, nested);
+        let docker = HashMap::new();
+
+        let ports = enrich_entries(entries, &processes, &cwd, &docker);
+        let info = &ports[0];
+
+        assert_eq!(info.process.name, "java");
+        assert_eq!(
+            info.project_name.as_deref(),
+            project.file_name().and_then(|name| name.to_str())
+        );
+        assert!(info.framework.is_none());
+        assert!(info.docker_image.is_none());
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {
