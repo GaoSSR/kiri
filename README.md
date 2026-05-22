@@ -31,29 +31,25 @@ This first Rust version intentionally changes the delivery shape:
 
 ## Install
 
-From this repository:
-
-```bash
-cargo install --path .
-```
-
-DevPorts is not published to npm or Homebrew yet. When those distribution channels are prepared, the intended install commands are:
+Release packaging is planned. After DevPorts is published, install it with npm:
 
 ```bash
 npm install -g devports
 ```
 
+Or with Homebrew:
+
 ```bash
 brew install devports
 ```
 
-If DevPorts is distributed through a Homebrew tap instead of Homebrew core, the command will use the tap name:
+If DevPorts is distributed through a Homebrew tap instead of Homebrew core, use the tap name:
 
 ```bash
 brew install <tap-owner>/tap/devports
 ```
 
-Until an npm package or Homebrew formula exists, use `cargo install --path .` from this repository.
+DevPorts has not been published to npm or Homebrew yet. These are the intended user-facing install commands for the first public release, not a claim that the package or formula is already available.
 
 After installation, verify both binaries are available:
 
@@ -64,20 +60,9 @@ devports --color never
 ports --color never
 ```
 
-If `which devports` does not find the binary, make sure Cargo's bin directory is on your `PATH`:
+If both npm and Homebrew versions are installed, `PATH` order decides which `devports` or `ports` binary runs.
 
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-```
-
-If another tool already provides a `ports` command, put `$HOME/.cargo/bin` earlier in `PATH` when you want the DevPorts short command to win. The primary `devports` command avoids that common name collision.
-
-For local development without installing:
-
-```bash
-cargo run --bin devports --
-cargo run --bin ports --
-```
+The short command `ports` can also conflict with an older npm install of `port-whisperer`. If your system already has a `ports` command, the one that runs depends on `PATH` order. Use `which ports` to check what will execute. The primary `devports` command avoids that common name collision.
 
 ## Usage
 
@@ -187,7 +172,7 @@ This first CLI release does not implement:
 - Complete Linux or Windows support.
 - `ps`, `logs`, `clean`, or `watch` commands from `port-whisperer`.
 - Docker logs or process tree views.
-- Package publishing to crates.io, Homebrew, npm, or other registries.
+- Published npm package or Homebrew formula. Those release packages are planned but not available yet.
 
 ## Differences From port-whisperer
 
@@ -203,6 +188,8 @@ DevPorts keeps the core behavior but changes the implementation and first-releas
 - `ps`, `logs`, `clean`, and `watch` are intentionally left out of this version.
 
 ## Development Checks
+
+For maintainers and contributors working from source:
 
 ```bash
 cargo fmt
