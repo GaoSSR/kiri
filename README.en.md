@@ -1,12 +1,11 @@
 <h4 align="right"><a href="./README.md">简体中文</a> | <strong><a href="./README.en.md">English</a></strong></h4>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
-</picture>
-
 <p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+    <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
+  </picture>
   <a href="https://github.com/GaoSSR/kiri">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
@@ -17,20 +16,25 @@
   <br />
 </p>
 
-### High-performance local development port management CLI, powered by Rust
+<br />
+<br />
 
-Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
+### <small><nobr>High-performance local development port management CLI, powered by Rust</nobr></small>
 
-<p>
+<br clear="right" />
+
+<p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
   <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-<br clear="right" />
-
 ---
+
+## Kiri Overview
+
+Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
 ## Core Usage
 

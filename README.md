@@ -1,12 +1,11 @@
 <h4 align="right"><strong><a href="./README.md">简体中文</a></strong> | <a href="./README.en.md">English</a></h4>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
-</picture>
-
 <p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+    <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
+  </picture>
   <a href="https://github.com/GaoSSR/kiri">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
@@ -17,20 +16,25 @@
   <br />
 </p>
 
-### 由 Rust 语言所驱动的管理本地开发端口的高性能 CLI
+<br />
+<br />
 
-Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
+### <small><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></small>
 
-<p>
+<br clear="right" />
+
+<p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
   <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-<br clear="right" />
-
 ---
+
+## Kiri 简介
+
+Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
 
 ## 核心用法
 
