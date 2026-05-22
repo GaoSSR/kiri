@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/kiri-logo.png" alt="Kiri" width="420" />
+  <img src="assets/kiri-logo.png" alt="Kiri" width="300" />
 </p>
 
 <h1 align="center">Kiri</h1>
