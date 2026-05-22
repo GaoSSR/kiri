@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  <strong>Manage local development ports: inspect processes, view matching logs, stop port owners.</strong>
+  <strong>Local development port management CLI</strong>
 </p>
 
 <p align="center">
@@ -19,24 +19,14 @@
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-Kiri is a local development port management CLI. It helps you see which dev services are running, resolve a port to its process and project, view logs for the process listening on that port, and stop the process that owns the port.
+Kiri is a CLI for managing local development ports.
 
-The product is **Kiri**. The command you type is:
+## Why Kiri?
 
-```bash
-ports
-```
-
-In daily development, the real question is rarely just "which port is open?" It is "who owns this port, what is it logging, and can I stop it safely?" Kiri puts those actions behind one `ports` command. The default `ports` view stays focused on developer-relevant listeners, while `ports --all` is available when you need the full system view.
-
-## Common Workflows
-
-```bash
-ports            # see how many local dev services are running
-ports logs 3000  # view logs for the process listening on port 3000
-ports kill 3000  # stop the process occupying port 3000
-ports ps         # see which local dev processes are running
-```
+- **View local development services and their ports:** `ports`
+- **Quickly kill the process/PID behind a port:** `ports kill <port>`
+- **View logs for the process listening on a port:** `ports logs <port|pid>`
+- **View all ports:** `ports --all`
 
 ## Install
 
@@ -65,39 +55,31 @@ Current support is macOS first. Linux and Windows have distribution plans, but t
 
 ```bash
 ports
-ports logs 3000
 ports kill 3000
-ports ps
+ports logs 3000
 ports --all
+ports ps
 ports 3000
 ```
 
 ## Commands
 
 ```bash
-ports                       # show developer-relevant listening ports
+ports                       # view local development services and their ports
 ports --all                 # show all listening ports
 ports <port>                # show details for one port
 ports ps                    # show developer-related running processes
 ports ps --all              # show all processes
-ports logs <port|pid>       # show logs for a resolved process
+ports logs <port|pid>       # view logs for the process listening on a port
 ports logs 3000 --lines 10  # show last 10 lines
 ports logs 3000 --err       # stderr only
 ports logs 3000 --follow    # follow logs
 ports clean                 # ask before cleaning orphaned/zombie dev processes
 ports watch                 # stream port start/stop events
-ports kill 3000             # terminate listener on a port
+ports kill 3000             # quickly kill the process/PID behind a port
 ports kill 3000-3010        # terminate listeners across a range
 ports kill --force 3000     # use SIGKILL instead of SIGTERM
 ```
-
-## Why Kiri?
-
-- **See local development at a glance:** `ports` lists developer-relevant listeners with process, project, framework, uptime, and status.
-- **View logs for the process listening on a port:** `ports logs <port|pid>` resolves likely log files for the owning process and supports interactive selection in a real terminal.
-- **Quickly kill the process behind a port:** `ports kill <port>` resolves the listener first, then stops the process occupying that port without making you look up the PID manually.
-- **View the process/PID behind a port:** Kiri maps ports to processes, PIDs, projects, frameworks, and Docker container metadata.
-- **Keep the full view available:** `ports` stays focused on development work, while `ports --all` shows every listening port.
 
 ## Safety
 

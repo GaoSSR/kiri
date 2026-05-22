@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  <strong>管理本地开发端口：看进程、查对应日志、关占用。</strong>
+  <strong>管理本地开发端口的CLI</strong>
 </p>
 
 <p align="center">
@@ -19,24 +19,14 @@
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-Kiri 是一个面向本地开发的端口管理 CLI。它帮你快速看清本机启动了哪些开发服务，按端口找到背后的进程和项目，查看监听端口所对应进程的日志，或者直接结束占用端口的进程。
+Kiri 是一个管理本地开发端口的CLI。
 
-产品名是 **Kiri**，真正输入的命令是：
+## 为什么需要 Kiri？
 
-```bash
-ports
-```
-
-日常开发里最常见的问题不是“端口号是多少”，而是“谁占了这个端口、它在打什么日志、我能不能安全关掉它”。Kiri 把这些操作收在一个 `ports` 命令里。默认 `ports` 聚焦开发相关监听端口；需要完整系统视图时使用 `ports --all`。
-
-## 常用场景
-
-```bash
-ports            # 看本地开发启了几个服务
-ports logs 3000  # 查看监听 3000 端口的进程日志
-ports kill 3000  # 结束占用 3000 端口的进程
-ports ps         # 看本地开发启了哪些进程
-```
+- **查看本地开发所启动的服务以及对应的端口号：** `ports`
+- **快速 Kill 掉端口所对应的进程/PID：** `ports kill <port>`
+- **监听端口所对应进程的日志：** `ports logs <port|pid>`
+- **查看所有端口：** `ports --all`
 
 ## 安装
 
@@ -65,39 +55,31 @@ irm https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.ps1 | iex
 
 ```bash
 ports
-ports logs 3000
 ports kill 3000
-ports ps
+ports logs 3000
 ports --all
+ports ps
 ports 3000
 ```
 
 ## 命令
 
 ```bash
-ports                       # 展示开发相关监听端口
+ports                       # 查看本地开发所启动的服务以及对应的端口号
 ports --all                 # 展示所有监听端口
 ports <port>                # 查看单个端口详情
 ports ps                    # 展示开发相关运行进程
 ports ps --all              # 展示所有进程
-ports logs <port|pid>       # 查看已解析进程的日志
+ports logs <port|pid>       # 监听端口所对应进程的日志
 ports logs 3000 --lines 10  # 只看最后 10 行
 ports logs 3000 --err       # 只看 stderr
 ports logs 3000 --follow    # 持续跟随日志
 ports clean                 # 清理孤儿或僵尸开发进程前先询问
 ports watch                 # 监听端口启动和停止事件
-ports kill 3000             # 终止监听指定端口的进程
+ports kill 3000             # 快速 Kill 掉端口所对应的进程/PID
 ports kill 3000-3010        # 终止一个端口范围内的监听进程
 ports kill --force 3000     # 使用 SIGKILL 而不是 SIGTERM
 ```
-
-## 为什么需要 Kiri？
-
-- **快速看清本地开发状态：** `ports` 直接列出当前开发相关监听端口、进程、项目、框架、运行时长和状态。
-- **监听端口对应进程的日志：** `ports logs <port|pid>` 会解析对应进程的日志位置，并在真实终端里支持交互选择。
-- **快速 Kill 掉端口所对应的进程：** `ports kill <port>` 先解析监听者，再终止占用端口的进程，不需要手动查 PID。
-- **查看端口所对应的进程/PID：** Kiri 会把端口映射到进程、PID、项目、框架和 Docker 容器信息。
-- **保留完整视图：** 默认 `ports` 聚焦开发场景，`ports --all` 用来查看所有监听端口。
 
 ## 安全边界
 
