@@ -69,6 +69,7 @@ pub fn batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
         .collect::<Vec<String>>()
         .join(",");
     let output = match Command::new("ps")
+        .env("LC_ALL", "C")
         .args([
             "-p",
             &pid_list,
@@ -111,14 +112,18 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
             Err(_) => continue,
         };
 
+        let Some((lstart, command)) = parse_lstart_and_command(&parts[4..]) else {
+            continue;
+        };
+
         processes.insert(
             pid,
             RawProcessInfo {
                 ppid,
                 stat: parts[2].to_string(),
                 rss_kb,
-                lstart: format!("{} {} {} {}", parts[5], parts[6], parts[7], parts[8]),
-                command: parts[9..].join(" "),
+                lstart,
+                command,
             },
         );
     }
@@ -176,6 +181,7 @@ pub fn parse_cwd_output(raw: &str) -> HashMap<u32, PathBuf> {
 
 pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
     let output = match Command::new("ps")
+        .env("LC_ALL", "C")
         .args(["-eo", "pid=,pcpu=,pmem=,rss=,lstart=,command="])
         .output()
     {
@@ -221,7 +227,9 @@ pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> 
             Ok(rss_kb) => rss_kb,
             Err(_) => continue,
         };
-        let command = parts[9..].join(" ");
+        let Some((lstart, command)) = parse_lstart_and_command(&parts[4..]) else {
+            continue;
+        };
         if command.is_empty() {
             continue;
         }
@@ -232,7 +240,7 @@ pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> 
             cpu,
             mem_percent,
             rss_kb,
-            lstart: format!("{} {} {} {}", parts[5], parts[6], parts[7], parts[8]),
+            lstart,
             command,
         });
     }
@@ -261,6 +269,98 @@ fn process_name_from_command(command: &str) -> String {
         .and_then(|name| name.to_str())
         .unwrap_or(first)
         .to_string()
+}
+
+fn parse_lstart_and_command(parts: &[&str]) -> Option<(String, String)> {
+    if parts.len() >= 6 {
+        if let Some(month) = english_month(parts[1]) {
+            let day = parts[2];
+            let time = parts[3];
+            let year = parts[4];
+            if is_day(day) && is_time(time) && is_year(year) {
+                return Some((format!("{month} {day} {time} {year}"), parts[5..].join(" ")));
+            }
+        }
+    }
+
+    if parts.len() >= 5 {
+        if let Some((month, day)) = chinese_month_day(parts[1]) {
+            let time = parts[2];
+            let year = parts[3];
+            if is_time(time) && is_year(year) {
+                return Some((format!("{month} {day} {time} {year}"), parts[4..].join(" ")));
+            }
+        }
+    }
+
+    None
+}
+
+fn english_month(value: &str) -> Option<&'static str> {
+    match value {
+        "Jan" => Some("Jan"),
+        "Feb" => Some("Feb"),
+        "Mar" => Some("Mar"),
+        "Apr" => Some("Apr"),
+        "May" => Some("May"),
+        "Jun" => Some("Jun"),
+        "Jul" => Some("Jul"),
+        "Aug" => Some("Aug"),
+        "Sep" => Some("Sep"),
+        "Oct" => Some("Oct"),
+        "Nov" => Some("Nov"),
+        "Dec" => Some("Dec"),
+        _ => None,
+    }
+}
+
+fn chinese_month_day(value: &str) -> Option<(&'static str, &str)> {
+    let (month, day) = value.split_once("月/")?;
+    let month = match month {
+        "1" => "Jan",
+        "2" => "Feb",
+        "3" => "Mar",
+        "4" => "Apr",
+        "5" => "May",
+        "6" => "Jun",
+        "7" => "Jul",
+        "8" => "Aug",
+        "9" => "Sep",
+        "10" => "Oct",
+        "11" => "Nov",
+        "12" => "Dec",
+        _ => return None,
+    };
+
+    is_day(day).then_some((month, day))
+}
+
+fn is_day(value: &str) -> bool {
+    value.parse::<u8>().is_ok_and(|day| (1..=31).contains(&day))
+}
+
+fn is_year(value: &str) -> bool {
+    value.len() == 4 && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn is_time(value: &str) -> bool {
+    let mut parts = value.split(':');
+    let Some(hour) = parts.next() else {
+        return false;
+    };
+    let Some(minute) = parts.next() else {
+        return false;
+    };
+    let Some(second) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+
+    hour.parse::<u8>().is_ok_and(|value| value < 24)
+        && minute.parse::<u8>().is_ok_and(|value| value < 60)
+        && second.parse::<u8>().is_ok_and(|value| value < 60)
 }
 
 #[cfg(test)]
@@ -334,6 +434,19 @@ python3 51000 user   24u  IPv4 0x123456789abcdef1      0t0  TCP 127.0.0.1:3000 (
         assert_eq!(process.rss_kb, 184320);
         assert_eq!(process.lstart, "May 20 14:12:44 2026");
         assert_eq!(process.command, "node /repo/app/server.js");
+    }
+
+    #[test]
+    fn parses_process_info_lines_with_chinese_lstart_locale() {
+        let raw = "\
+37747 37709 S+ 53264 五 5月/22 18:45:15 2026 node /repo/app/node_modules/.bin/vite
+";
+
+        let processes = parse_process_info(raw);
+        let process = processes.get(&37747).expect("process should parse");
+
+        assert_eq!(process.lstart, "May 22 18:45:15 2026");
+        assert_eq!(process.command, "node /repo/app/node_modules/.bin/vite");
     }
 
     #[test]

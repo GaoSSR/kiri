@@ -1,19 +1,18 @@
 use crate::model::{PortInfo, ProcessListInfo};
-use std::io::IsTerminal;
 use terminal_size::{terminal_size, Width};
 
 const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
-const BOLD_CYAN: &str = "\x1b[1;36m";
-const BOLD_BLUE: &str = "\x1b[1;34m";
-const GREEN: &str = "\x1b[1;32m";
-const TOKEN_GREEN: &str = "\x1b[32m";
-const YELLOW: &str = "\x1b[1;33m";
-const RED: &str = "\x1b[1;31m";
-const TOKEN_RED: &str = "\x1b[31m";
-const BLUE: &str = "\x1b[1;34m";
-const PURPLE: &str = "\x1b[1;35m";
+const BLUE: &str = "\x1b[38;2;59;130;246m";
+const INDIGO: &str = "\x1b[38;2;99;102;241m";
+const LIME: &str = "\x1b[38;2;101;163;13m";
+const GREEN: &str = "\x1b[38;2;76;175;80m";
+const RED: &str = "\x1b[38;2;239;68;68m";
+const ROSE: &str = "\x1b[38;2;225;29;72m";
+const PURPLE: &str = "\x1b[38;2;139;92;246m";
+const ORANGE: &str = "\x1b[38;2;245;158;11m";
+const BORDER_GRAY: &str = "\x1b[38;2;163;163;163m";
+const DOT_GREEN: &str = "\x1b[38;2;34;197;94m";
 
 const DEFAULT_TERMINAL_WIDTH: usize = 100;
 const COLUMN_COUNT: usize = 7;
@@ -28,13 +27,13 @@ const STATUS_COL: usize = 6;
 const BORDER_OVERHEAD: usize = 1 + COLUMN_COUNT * 3;
 
 const HEADERS: [&str; COLUMN_COUNT] = [
-    "PORT",
-    "PROCESS",
+    "Port",
+    "Process",
     "PID",
-    "PROJECT",
-    "FRAMEWORK",
-    "UPTIME",
-    "STATUS",
+    "Project",
+    "Framework",
+    "Uptime",
+    "Status",
 ];
 
 const PROCESS_COLUMN_COUNT: usize = 8;
@@ -49,66 +48,57 @@ const PROCESS_DESCRIPTION_COL: usize = 7;
 const PROCESS_BORDER_OVERHEAD: usize = 1 + PROCESS_COLUMN_COUNT * 3;
 const PROCESS_HEADERS: [&str; PROCESS_COLUMN_COUNT] = [
     "PID",
-    "PROCESS",
+    "Process",
     "CPU%",
-    "MEM",
-    "PROJECT",
-    "FRAMEWORK",
-    "UPTIME",
-    "WHAT",
+    "Mem",
+    "Project",
+    "Framework",
+    "Uptime",
+    "What",
 ];
 
 const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
-    ColumnSpec::stable(6, Align::Left),
-    ColumnSpec::flex(7, 5, 3, Align::Left),
-    ColumnSpec::stable(5, Align::Right),
-    ColumnSpec::flex(7, 4, 1, Align::Left),
-    ColumnSpec::flex(9, 4, 2, Align::Left),
-    ColumnSpec::stable(6, Align::Left),
-    ColumnSpec::stable(7, Align::Left),
+    ColumnSpec::stable(7),
+    ColumnSpec::flex(7, 5, 3),
+    ColumnSpec::stable(5),
+    ColumnSpec::flex(7, 4, 1),
+    ColumnSpec::flex(12, 4, 2),
+    ColumnSpec::stable(6),
+    ColumnSpec::stable(8),
 ];
 
 const PROCESS_COLUMN_SPECS: [ColumnSpec; PROCESS_COLUMN_COUNT] = [
-    ColumnSpec::stable(5, Align::Right),
-    ColumnSpec::flex(7, 5, 3, Align::Left),
-    ColumnSpec::stable(5, Align::Right),
-    ColumnSpec::stable(8, Align::Right),
-    ColumnSpec::flex(7, 4, 2, Align::Left),
-    ColumnSpec::flex(9, 4, 2, Align::Left),
-    ColumnSpec::stable(6, Align::Left),
-    ColumnSpec::flex(8, 5, 1, Align::Left),
+    ColumnSpec::stable(5),
+    ColumnSpec::flex(7, 5, 3),
+    ColumnSpec::stable(5),
+    ColumnSpec::stable(8),
+    ColumnSpec::flex(7, 4, 2),
+    ColumnSpec::flex(12, 4, 2),
+    ColumnSpec::stable(6),
+    ColumnSpec::flex(8, 5, 1),
 ];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Align {
-    Left,
-    Right,
-}
 
 #[derive(Debug, Clone, Copy)]
 struct ColumnSpec {
     soft_min: usize,
     hard_min: usize,
     shrink_priority: u8,
-    align: Align,
 }
 
 impl ColumnSpec {
-    const fn stable(width: usize, align: Align) -> Self {
+    const fn stable(width: usize) -> Self {
         Self {
             soft_min: width,
             hard_min: width,
             shrink_priority: u8::MAX,
-            align,
         }
     }
 
-    const fn flex(soft_min: usize, hard_min: usize, shrink_priority: u8, align: Align) -> Self {
+    const fn flex(soft_min: usize, hard_min: usize, shrink_priority: u8) -> Self {
         Self {
             soft_min,
             hard_min,
             shrink_priority,
-            align,
         }
     }
 }
@@ -123,36 +113,8 @@ struct ProcessTableRow {
     cells: [String; PROCESS_COLUMN_COUNT],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ColorMode {
-    Auto,
-    Always,
-    Never,
-}
-
-impl ColorMode {
-    fn should_color(self) -> bool {
-        match self {
-            Self::Auto => std::io::stdout().is_terminal(),
-            Self::Always => true,
-            Self::Never => false,
-        }
-    }
-}
-
 pub fn render_port_table(ports: &[PortInfo], filtered: bool) -> String {
-    render_port_table_with_color_mode(ports, filtered, ColorMode::Auto)
-}
-
-pub fn render_port_table_with_color_mode(
-    ports: &[PortInfo],
-    filtered: bool,
-    color_mode: ColorMode,
-) -> String {
-    apply_color_mode(
-        render_port_table_with_width(ports, filtered, current_terminal_width()),
-        color_mode,
-    )
+    render_port_table_with_width(ports, filtered, current_terminal_width())
 }
 
 fn render_port_table_with_width(
@@ -186,8 +148,11 @@ fn render_port_table_with_width(
     push_border(&mut output, &widths, BorderKind::Top);
     output.push_str(&render_table_row(&header, &widths, true));
     push_border(&mut output, &widths, BorderKind::Middle);
-    for row in &rows {
+    for (index, row) in rows.iter().enumerate() {
         output.push_str(&render_table_row(row, &widths, false));
+        if index + 1 < rows.len() {
+            push_border(&mut output, &widths, BorderKind::Middle);
+        }
     }
     push_border(&mut output, &widths, BorderKind::Bottom);
 
@@ -200,8 +165,8 @@ fn render_port_table_with_width(
     if filtered {
         output.push_str(&format!(
             " - run `{}` `{}` to show everything",
-            colorize("ports", BOLD_CYAN),
-            colorize("--all", YELLOW)
+            colorize_bold("ports", BLUE),
+            colorize_bold("--all", ORANGE)
         ));
     }
     output.push('\n');
@@ -210,25 +175,11 @@ fn render_port_table_with_width(
 }
 
 pub fn render_port_detail(port: &PortInfo) -> String {
-    render_port_detail_with_color_mode(port, ColorMode::Auto)
+    render_port_detail_with_width(port, current_terminal_width())
 }
 
-pub fn render_port_detail_with_color_mode(port: &PortInfo, color_mode: ColorMode) -> String {
-    apply_color_mode(
-        render_port_detail_with_width(port, current_terminal_width()),
-        color_mode,
-    )
-}
-
-pub fn render_process_table_with_color_mode(
-    processes: &[ProcessListInfo],
-    filtered: bool,
-    color_mode: ColorMode,
-) -> String {
-    apply_color_mode(
-        render_process_table_with_width(processes, filtered, current_terminal_width()),
-        color_mode,
-    )
+pub fn render_process_table(processes: &[ProcessListInfo], filtered: bool) -> String {
+    render_process_table_with_width(processes, filtered, current_terminal_width())
 }
 
 fn render_process_table_with_width(
@@ -262,8 +213,11 @@ fn render_process_table_with_width(
     push_process_border(&mut output, &widths, BorderKind::Top);
     output.push_str(&render_process_table_row(&header, &widths, true));
     push_process_border(&mut output, &widths, BorderKind::Middle);
-    for row in &rows {
+    for (index, row) in rows.iter().enumerate() {
         output.push_str(&render_process_table_row(row, &widths, false));
+        if index + 1 < rows.len() {
+            push_process_border(&mut output, &widths, BorderKind::Middle);
+        }
     }
     push_process_border(&mut output, &widths, BorderKind::Bottom);
 
@@ -276,9 +230,9 @@ fn render_process_table_with_width(
     if filtered {
         output.push_str(&format!(
             " - run `{}` `{}` `{}` to show everything",
-            colorize("ports", BOLD_CYAN),
+            colorize_bold("ports", BLUE),
             colorize("ps", PURPLE),
-            colorize("--all", YELLOW)
+            colorize_bold("--all", ORANGE)
         ));
     }
     output.push('\n');
@@ -290,7 +244,7 @@ fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> Stri
     let mut output = String::new();
 
     output.push_str(&colorize("Kiri - Port ", BOLD));
-    output.push_str(&colorize(&format!(":{}", port.port), BOLD_CYAN));
+    output.push_str(&colorize_bold(&port.port.to_string(), BLUE));
     output.push_str("\n\n");
 
     push_wrapped_field(&mut output, "Process", &port.process.name, terminal_width);
@@ -369,14 +323,6 @@ fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> Stri
     output
 }
 
-fn apply_color_mode(output: String, color_mode: ColorMode) -> String {
-    if color_mode.should_color() {
-        output
-    } else {
-        strip_ansi_codes(&output)
-    }
-}
-
 fn current_terminal_width() -> usize {
     terminal_size()
         .map(|(Width(width), _)| usize::from(width))
@@ -389,7 +335,7 @@ fn port_rows(ports: &[PortInfo]) -> Vec<TableRow> {
         .iter()
         .map(|port| TableRow {
             cells: [
-                format!(":{}", port.port),
+                port.port.to_string(),
                 port.process.name.clone(),
                 port.process.pid.to_string(),
                 port.project_name.clone().unwrap_or_else(|| "-".to_string()),
@@ -600,7 +546,7 @@ fn push_border(output: &mut String, widths: &[usize; COLUMN_COUNT], kind: Border
         BorderKind::Bottom => ('└', '─', '┴', '┘'),
     };
 
-    output.push_str(DIM);
+    output.push_str(BORDER_GRAY);
     output.push(left);
     for (index, width) in widths.iter().enumerate() {
         output.push_str(&fill.to_string().repeat(width + 2));
@@ -625,7 +571,7 @@ fn push_process_border(
         BorderKind::Bottom => ('└', '─', '┴', '┘'),
     };
 
-    output.push_str(DIM);
+    output.push_str(BORDER_GRAY);
     output.push(left);
     for (index, width) in widths.iter().enumerate() {
         output.push_str(&fill.to_string().repeat(width + 2));
@@ -645,7 +591,7 @@ fn render_table_row(row: &TableRow, widths: &[usize; COLUMN_COUNT], header: bool
 
     for index in 0..COLUMN_COUNT {
         let value = truncate_to_width(&row.cells[index], widths[index]);
-        let padded = pad_aligned(&value, widths[index], COLUMN_SPECS[index].align);
+        let padded = pad_centered(&value, widths[index]);
         line.push(' ');
         if header {
             line.push_str(&style_header(&padded));
@@ -670,7 +616,7 @@ fn render_process_table_row(
 
     for index in 0..PROCESS_COLUMN_COUNT {
         let value = truncate_to_width(&row.cells[index], widths[index]);
-        let padded = pad_aligned(&value, widths[index], PROCESS_COLUMN_SPECS[index].align);
+        let padded = pad_centered(&value, widths[index]);
         line.push(' ');
         if header {
             line.push_str(&style_header(&padded));
@@ -686,43 +632,43 @@ fn render_process_table_row(
 }
 
 fn push_border_char(output: &mut String, value: char) {
-    output.push_str(DIM);
+    output.push_str(BORDER_GRAY);
     output.push(value);
     output.push_str(RESET);
 }
 
 fn style_status(status: &str, padded: &str) -> String {
     let color = match status {
-        "healthy" => GREEN,
-        "orphaned" => YELLOW,
-        "zombie" => RED,
-        _ => BLUE,
+        "healthy" => DOT_GREEN,
+        "orphaned" => ORANGE,
+        "zombie" => ROSE,
+        _ => INDIGO,
     };
 
     format!("{color}{padded}{RESET}")
 }
 
 fn style_header(value: &str) -> String {
-    colorize(value, BOLD_CYAN)
+    colorize_bold(value, BLUE)
 }
 
 fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
     match index {
-        PORT_COL => colorize(padded, BOLD_CYAN),
+        PORT_COL => colorize_bold(padded, BLUE),
         PROCESS_COL => colorize(padded, PURPLE),
         PROJECT_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
-                colorize(padded, BOLD_BLUE)
+                colorize(padded, LIME)
             }
         }
         FRAMEWORK_COL => style_framework(value, padded),
         UPTIME_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
-                colorize(padded, YELLOW)
+                colorize(padded, ORANGE)
             }
         }
         STATUS_COL => style_status(value, padded),
@@ -737,38 +683,38 @@ fn style_process_cell(index: usize, value: &str, padded: &str) -> String {
         PROCESS_CPU_COL => {
             let cpu = value.parse::<f64>().unwrap_or_default();
             if cpu > 25.0 {
-                colorize(padded, RED)
+                colorize(padded, ROSE)
             } else if cpu > 5.0 {
-                colorize(padded, YELLOW)
+                colorize(padded, ORANGE)
             } else {
-                colorize(padded, GREEN)
+                colorize(padded, LIME)
             }
         }
         PROCESS_MEMORY_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
-                colorize(padded, TOKEN_GREEN)
+                colorize(padded, GREEN)
             }
         }
         PROCESS_PROJECT_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
-                colorize(padded, BOLD_BLUE)
+                colorize(padded, LIME)
             }
         }
         PROCESS_FRAMEWORK_COL => style_framework(value, padded),
         PROCESS_UPTIME_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
-                colorize(padded, YELLOW)
+                colorize(padded, ORANGE)
             }
         }
         PROCESS_DESCRIPTION_COL => {
             if value == "-" {
-                colorize(padded, DIM)
+                colorize(padded, BORDER_GRAY)
             } else {
                 padded.to_string()
             }
@@ -779,46 +725,31 @@ fn style_process_cell(index: usize, value: &str, padded: &str) -> String {
 
 fn style_framework(framework: &str, padded: &str) -> String {
     if framework == "-" || framework.trim().is_empty() {
-        return colorize(padded, DIM);
+        return colorize(padded, BORDER_GRAY);
     }
 
     colorize(padded, framework_color(framework))
 }
 
-fn framework_color(framework: &str) -> &'static str {
-    let lower = framework.to_ascii_lowercase();
-
-    if lower.contains("vite") || lower.contains("python") {
-        YELLOW
-    } else if lower.contains("postgres") || lower.contains("docker") || lower.contains("nginx") {
-        BLUE
-    } else if lower.contains("redis") || lower.contains("java") {
-        RED
-    } else if lower.contains("react")
-        || lower.contains("next")
-        || lower.contains("vue")
-        || lower.contains("svelte")
-        || lower.contains("remix")
-        || lower.contains("astro")
-    {
-        PURPLE
-    } else {
-        BOLD_CYAN
-    }
+fn framework_color(_framework: &str) -> &'static str {
+    RED
 }
 
 fn colorize(value: &str, color: &str) -> String {
     format!("{color}{value}{RESET}")
 }
 
-fn pad_aligned(value: &str, width: usize, align: Align) -> String {
+fn colorize_bold(value: &str, color: &str) -> String {
+    format!("{BOLD}{color}{value}{RESET}")
+}
+
+fn pad_centered(value: &str, width: usize) -> String {
     let display_width = visible_width(value);
     let padding = width.saturating_sub(display_width);
+    let left = padding / 2;
+    let right = padding - left;
 
-    match align {
-        Align::Left => format!("{value}{}", " ".repeat(padding)),
-        Align::Right => format!("{}{value}", " ".repeat(padding)),
-    }
+    format!("{}{}{}", " ".repeat(left), value, " ".repeat(right))
 }
 
 fn truncate_to_width(value: &str, max_width: usize) -> String {
@@ -856,7 +787,7 @@ fn push_wrapped_field(output: &mut String, label: &str, value: &str, terminal_wi
     for (index, line) in lines.iter().enumerate() {
         let line = style_detail_value(label, line);
         if index == 0 {
-            let label = colorize(&format!("{label:<LABEL_WIDTH$}"), BOLD_CYAN);
+            let label = colorize_bold(&format!("{label:<LABEL_WIDTH$}"), BLUE);
             output.push_str(&format!("{label}  {line}\n"));
         } else {
             output.push_str(&format!("{:<LABEL_WIDTH$}  {line}\n", ""));
@@ -897,17 +828,17 @@ fn style_detail_value(label: &str, value: &str) -> String {
         "Status" => style_status(value, value),
         "Project" | "Container" => {
             if value == "-" {
-                colorize(value, DIM)
+                colorize(value, BORDER_GRAY)
             } else {
-                colorize(value, BOLD_BLUE)
+                colorize(value, LIME)
             }
         }
         "Framework" => style_framework(value, value),
         "Directory" => {
             if value == "-" {
-                colorize(value, DIM)
+                colorize(value, BORDER_GRAY)
             } else {
-                colorize(value, BLUE)
+                colorize(value, GREEN)
             }
         }
         "Command" => style_command_line(value),
@@ -927,11 +858,11 @@ fn style_command_token(token: &str) -> String {
     if is_variable_like_token(token) {
         colorize(token, PURPLE)
     } else if token.starts_with('-') {
-        colorize(token, TOKEN_RED)
+        colorize(token, ROSE)
     } else if is_path_or_url_token(token) {
-        colorize(token, TOKEN_GREEN)
+        colorize(token, GREEN)
     } else if is_command_like_token(token) {
-        colorize(token, BOLD_CYAN)
+        colorize_bold(token, BLUE)
     } else {
         token.to_string()
     }
@@ -1074,20 +1005,20 @@ mod tests {
     #[test]
     fn column_widths_use_ideal_widths_when_terminal_is_wide_enough() {
         let rows = vec![table_row([
-            ":5173", "node", "1296", "frontend", "Vite", "14h 2m", "healthy",
+            "5173", "node", "1296", "frontend", "Vite", "14h 2m", "healthy",
         ])];
 
         let widths = calculate_column_widths(&rows, 160);
 
         assert_eq!(widths[PROJECT_COL], "frontend".len());
-        assert_eq!(widths[FRAMEWORK_COL], "FRAMEWORK".len());
+        assert_eq!(widths[FRAMEWORK_COL], 12);
         assert!(total_table_width(&widths) <= 160);
     }
 
     #[test]
     fn column_widths_compress_flexible_columns_when_terminal_is_narrow() {
         let rows = vec![table_row([
-            ":5173",
+            "5173",
             "very-long-node-wrapper",
             "1296",
             "project-name-that-is-far-too-long-for-a-narrow-terminal",
@@ -1187,10 +1118,10 @@ mod tests {
     }
 
     #[test]
-    fn color_mode_always_keeps_ansi_for_captured_output() {
+    fn default_rendering_keeps_ansi_for_captured_output() {
         let port = sample_port("frontend", "node vite");
 
-        let output = render_port_table_with_color_mode(&[port], true, ColorMode::Always);
+        let output = render_port_table_with_width(&[port], true, 100);
 
         assert!(output.contains("\x1b["));
         assert!(!output.contains("\x1b[37m"));
@@ -1198,24 +1129,123 @@ mod tests {
     }
 
     #[test]
-    fn color_mode_never_removes_all_ansi() {
+    fn modern_terminal_rendering_uses_title_case_headers_and_plain_ports() {
         let port = sample_port("frontend", "node vite");
 
-        let output = render_port_table_with_color_mode(&[port], true, ColorMode::Never);
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
+
+        assert!(output.contains("│  Port   │"));
+        assert!(output.contains("│ Process "));
+        assert!(output.contains("│  Framework   │"));
+        assert!(!output.contains("│ PORT "));
+        assert!(output.contains("│  5173   │"));
+        assert!(!output.contains(":5173"));
+    }
+
+    #[test]
+    fn modern_terminal_rendering_detail_title_uses_plain_port_number() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_detail_with_width(&port, 100));
+
+        assert!(output.contains("Kiri - Port 5173"));
+        assert!(!output.contains("Port :5173"));
+    }
+
+    #[test]
+    fn modern_terminal_rendering_uses_configured_syntax_palette() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = render_port_table_with_width(&[port], true, 100);
+
+        for color in [
+            "\x1b[38;2;59;130;246m",  // #3B82F6
+            "\x1b[38;2;139;92;246m",  // #8B5CF6
+            "\x1b[38;2;34;197;94m",   // #22C55E
+            "\x1b[38;2;245;158;11m",  // #F59E0B
+            "\x1b[38;2;163;163;163m", // #A3A3A3
+        ] {
+            assert!(output.contains(color), "missing color {color:?}");
+        }
+    }
+
+    #[test]
+    fn modern_terminal_rendering_uses_distinct_process_and_project_colors() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = render_port_table_with_width(&[port], true, 100);
+
+        assert!(output.contains("\x1b[38;2;139;92;246m node"));
+        assert!(output.contains("\x1b[38;2;101;163;13mfrontend"));
+        assert!(!output.contains("\x1b[38;2;139;92;246mfrontend"));
+    }
+
+    #[test]
+    fn modern_terminal_rendering_centers_headers_and_data_cells() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
+
+        assert!(output.contains("│  PID  │"));
+        assert!(output.contains("│  Framework   │"));
+        assert!(output.contains("│  Status  │"));
+        assert!(output.contains("│ 1296  │"));
+        assert!(output.contains("│  5173   │"));
+        assert!(output.contains("│  node   │"));
+    }
+
+    #[test]
+    fn modern_terminal_rendering_centers_wide_port_and_framework_values() {
+        let mut port = sample_port("frontend", "node vite");
+        port.port = 55433;
+        port.framework = Some("PostgreSQL".to_string());
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
+
+        assert!(output.contains("│  55433  │"));
+        assert!(output.contains("│  PostgreSQL  │"));
+    }
+
+    #[test]
+    fn modern_terminal_rendering_separates_each_data_row() {
+        let frontend = sample_port("frontend", "node vite");
+        let mut backend = sample_port("backend", "python app.py");
+        backend.port = 8000;
+        backend.process.pid = 4321;
+        backend.process.name = "python".to_string();
+        backend.framework = Some("Python".to_string());
+
+        let output = strip_ansi_codes(&render_port_table_with_width(
+            &[frontend, backend],
+            true,
+            100,
+        ));
+        let middle_borders = output.lines().filter(|line| line.starts_with('├')).count();
+
+        assert_eq!(middle_borders, 2);
+    }
+
+    #[test]
+    fn stripped_table_output_removes_all_ansi_for_internal_assertions() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
 
         assert!(!output.contains("\x1b["));
-        assert!(output.contains(":5173"));
+        assert!(output.contains("5173"));
+        assert!(!output.contains(":5173"));
         assert!(output.contains("frontend"));
     }
 
     #[test]
-    fn detail_color_mode_never_removes_all_ansi() {
+    fn stripped_detail_output_removes_all_ansi_for_internal_assertions() {
         let port = sample_port("frontend", "node vite");
 
-        let output = render_port_detail_with_color_mode(&port, ColorMode::Never);
+        let output = strip_ansi_codes(&render_port_detail_with_width(&port, 100));
 
         assert!(!output.contains("\x1b["));
-        assert!(output.contains(":5173"));
+        assert!(output.contains("5173"));
+        assert!(!output.contains(":5173"));
         assert!(output.contains("frontend"));
     }
 
@@ -1226,8 +1256,8 @@ mod tests {
         let output = render_port_table_with_width(&[port], true, 100);
 
         assert!(
-            output.contains("\x1b[1;36m") || output.contains("\x1b[1;34m"),
-            "header should use bold cyan or bold blue"
+            output.contains("\x1b[1m\x1b[38;2;59;130;246m Port "),
+            "header should use bold bright blue"
         );
     }
 
@@ -1237,7 +1267,7 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[1;32mhealthy"));
+        assert!(output.contains("\x1b[38;2;34;197;94mhealthy"));
     }
 
     #[test]
@@ -1249,8 +1279,12 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 80);
 
-        assert!(output.contains("\x1b[1;34mproject"));
-        assert!(output.contains("\x1b[1;33mVite"));
+        assert!(output.contains("\x1b[38;2;101;163;13mproject"));
+        let vite_line = output
+            .lines()
+            .find(|line| strip_ansi_codes(line).contains("Vite"))
+            .expect("Vite row should render");
+        assert!(vite_line.contains(RED));
         for line in output.lines() {
             assert!(
                 visible_width(line) <= 80,
@@ -1266,22 +1300,33 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[1;35mnode"));
+        assert!(output.contains("\x1b[38;2;139;92;246m node"));
     }
 
     #[test]
-    fn border_dim_does_not_wrap_entire_table_rows() {
+    fn framework_palette_uses_uniform_red_for_all_visible_frameworks() {
+        assert_eq!(framework_color("Vite"), RED);
+        assert_eq!(framework_color("React"), RED);
+        assert_eq!(framework_color("Redis"), RED);
+        assert_eq!(framework_color("PostgreSQL"), RED);
+        assert_eq!(framework_color("Docker"), RED);
+        assert_eq!(framework_color("Python"), RED);
+    }
+
+    #[test]
+    fn border_gray_does_not_wrap_entire_table_rows() {
         let port = sample_port("frontend", "node vite");
 
         let output = render_port_table_with_width(&[port], true, 100);
         let data_line = output
             .lines()
-            .find(|line| strip_ansi_codes(line).contains(":5173"))
+            .find(|line| strip_ansi_codes(line).contains("5173"))
             .unwrap();
 
-        assert!(data_line.contains(&format!("{DIM}│{RESET} ")));
-        assert!(data_line.contains(":5173"));
-        assert!(data_line.contains(&format!(" {DIM}│{RESET}")));
+        assert!(data_line.contains(&format!("{BORDER_GRAY}│{RESET} ")));
+        assert!(data_line.contains("5173"));
+        assert!(!data_line.contains(":5173"));
+        assert!(data_line.contains(&format!(" {BORDER_GRAY}│{RESET}")));
     }
 
     #[test]
@@ -1290,9 +1335,9 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[1;32m1\x1b[0m port active"));
-        assert!(output.contains("\x1b[1;36mports\x1b[0m"));
-        assert!(output.contains("\x1b[1;33m--all\x1b[0m"));
+        assert!(output.contains("\x1b[38;2;76;175;80m1\x1b[0m port active"));
+        assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mports\x1b[0m"));
+        assert!(output.contains("\x1b[1m\x1b[38;2;245;158;11m--all\x1b[0m"));
     }
 
     #[test]
@@ -1304,13 +1349,13 @@ mod tests {
 
         let output = render_port_detail_with_width(&port, 72);
 
-        assert!(output.contains("\x1b[1;36mProcess"));
-        assert!(output.contains("\x1b[1;34mfrontend"));
-        assert!(output.contains("\x1b[1;33mVite"));
-        assert!(output.contains("\x1b[1;35mTOKEN=$TOKEN"));
-        assert!(output.contains("\x1b[1;36mnode"));
-        assert!(output.contains("\x1b[32m/Users"));
-        assert!(output.contains("\x1b[31m--host"));
+        assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mProcess"));
+        assert!(output.contains("\x1b[38;2;101;163;13mfrontend"));
+        assert!(output.contains("\x1b[38;2;239;68;68mVite"));
+        assert!(output.contains("\x1b[38;2;139;92;246mTOKEN=$TOKEN"));
+        assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mnode"));
+        assert!(output.contains("\x1b[38;2;76;175;80m/Users"));
+        assert!(output.contains("\x1b[38;2;225;29;72m--host"));
         for line in output.lines() {
             assert!(
                 visible_width(line) <= 72,
@@ -1381,7 +1426,7 @@ mod tests {
     fn detail_output_shows_explicit_ports_kill_hint_without_interaction() {
         let port = sample_port("frontend", "node vite");
 
-        let output = render_port_detail_with_color_mode(&port, ColorMode::Never);
+        let output = strip_ansi_codes(&render_port_detail_with_width(&port, 100));
 
         assert!(output.contains("To stop it, run: ports kill 5173"));
         assert!(!output.contains("Kill process on"));
