@@ -1,4 +1,4 @@
-<h4 align="right"><strong><a href="./README.md">简体中文</a></strong> | <a href="./README.en.md">English</a></h4>
+<h4 align="right"><strong><a href="./README.md">English</a></strong> | <a href="./README_CN.md">简体中文</a></h4>
 
 <p>
   <picture>
@@ -23,7 +23,7 @@
 
 <br clear="right" />
 
-<h3 align="center"><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></h3>
+<h3 align="center"><nobr>High-performance local development port management CLI, powered by Rust</nobr></h3>
 
 ---
 
@@ -34,23 +34,23 @@
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
-## Kiri 简介
+## Kiri Overview
 
-Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
+Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
-## 核心用法
+## Core Usage
 
-- **快速查看本地开发端口：** `ports`
-- **快速 Kill 掉端口所对应的进程 / PID：** `ports kill <port>`
-- **监听端口所对应进程的日志：** `ports logs <port|pid>`
-- **查看所有端口：** `ports --all`
+- **View local development services and their ports:** `ports`
+- **Quickly kill the process / PID behind a port:** `ports kill <port>`
+- **View logs for the process listening on a port:** `ports logs <port|pid>`
+- **View all ports:** `ports --all`
 
-## 安装
+## Install
 
-Kiri 正在准备第一次公开发布。下面命令是 GitHub Release artifacts、npm 包和 Homebrew tap 发布后的规划安装入口。
+Kiri is preparing its first public release. The commands below describe the planned release channels after GitHub Release artifacts, npm packaging, and the Homebrew tap are published.
 
 ```bash
-# 安装脚本
+# Install script
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 
 # npm
@@ -60,46 +60,46 @@ npm install -g @gaossr/kiri
 brew install gaossr/tap/kiri
 ```
 
-Windows PowerShell 入口已规划，但在 Windows collector 和 release artifact 交付前，脚本会明确提示暂不支持：
+Windows PowerShell is planned, but Windows runtime support is not available until the Windows collector and release artifacts ship:
 
 ```powershell
 irm https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.ps1 | iex
 ```
 
-当前真实支持平台是 macOS。Linux 和 Windows 已有分发规划，但完整平台采集逻辑和发布产物还没有完成。
+Current support is macOS first. Linux and Windows have distribution plans, but their complete platform collectors and release artifacts are not ready yet.
 
-## 命令
+## Commands
 
 ```bash
-ports                       # 快速查看本地开发端口
-ports --all                 # 展示所有监听端口
-ports <port>                # 查看单个端口详情
-ports ps                    # 展示开发相关运行进程
-ports ps --all              # 展示所有进程
-ports logs <port|pid>       # 监听端口所对应进程的日志
-ports logs 3000 --lines 10  # 只看最后 10 行
-ports logs 3000 --err       # 只看 stderr
-ports logs 3000 --follow    # 持续跟随日志
-ports clean                 # 清理孤儿或僵尸开发进程前先询问
-ports watch                 # 监听端口启动和停止事件
-ports kill 3000             # 快速 Kill 掉端口所对应的进程 / PID
-ports kill 3000-3010        # 终止一个端口范围内的监听进程
-ports kill --force 3000     # 使用 SIGKILL 而不是 SIGTERM
+ports                       # view local development services and their ports
+ports --all                 # show all listening ports
+ports <port>                # show details for one port
+ports ps                    # show developer-related running processes
+ports ps --all              # show all processes
+ports logs <port|pid>       # view logs for the process listening on a port
+ports logs 3000 --lines 10  # show last 10 lines
+ports logs 3000 --err       # stderr only
+ports logs 3000 --follow    # follow logs
+ports clean                 # ask before cleaning orphaned/zombie dev processes
+ports watch                 # stream port start/stop events
+ports kill 3000             # quickly kill the process / PID behind a port
+ports kill 3000-3010        # terminate listeners across a range
+ports kill --force 3000     # use SIGKILL instead of SIGTERM
 ```
 
-## 平台支持
+## Platform Support
 
-| 平台 | 状态 |
+| Platform | Status |
 | --- | --- |
-| macOS | 当前主要真实支持平台 |
-| Linux | 已规划；collector 和 release artifacts 尚未完成 |
-| Windows | 已规划；PowerShell 安装入口当前会提示 unsupported，等待 collector 和 artifacts |
+| macOS | Current primary supported platform |
+| Linux | Planned; collector and release artifacts are not complete |
+| Windows | Planned; PowerShell installer currently reports unsupported until collector and artifacts ship |
 
-在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
+On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
 
-## 开发
+## Development
 
-维护者和贡献者可以从源码运行检查：
+For maintainers and contributors working from source:
 
 ```bash
 cargo fmt
