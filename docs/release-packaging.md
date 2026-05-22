@@ -20,7 +20,7 @@ The unscoped npm package name `kiri` is occupied, so the npm distribution uses t
 - Support curl, npm, and Homebrew installation channels.
 - Ship one public command: `ports`.
 - Ship reproducible, versioned binaries from GitHub Releases.
-- Avoid asking end users to compile from source.
+- Avoid asking end users to build binaries locally.
 - Keep Cargo usage limited to maintainers, CI, and local build/test workflows.
 
 ## Install Channels
@@ -53,7 +53,7 @@ Windows support is not available yet. The PowerShell script is an entry scaffold
 
 ## GitHub Releases Plan
 
-GitHub Releases should be the source of truth for versioned binaries.
+GitHub Releases should be the canonical location for versioned binaries.
 
 Recommended artifacts for the macOS-first release:
 
@@ -65,7 +65,7 @@ Each archive should include:
 
 - `ports`
 - `README.md`
-- License file when one exists
+- `LICENSE`
 - Checksums
 
 Current scaffold:
@@ -175,7 +175,7 @@ Cargo is useful for maintainers because it validates that the Rust crate builds,
 It is not the right primary user install path because:
 
 - It requires Rust and Cargo on the user's machine.
-- It can compile from source instead of installing a versioned release artifact.
+- It can build locally instead of installing a versioned release artifact.
 - It does not solve common PATH and command-name conflict issues for normal users.
 - It feels like a developer workflow rather than a product install experience.
 
@@ -188,6 +188,5 @@ For README usage, Cargo commands belong only in maintainer build and test sectio
 - Replace Homebrew formula placeholders with real release URLs and SHA256 values.
 - Decide how to handle `ports` command conflicts in release notes.
 - Add stable `--help` output suitable for package smoke tests.
-- Add a license file if the repository is distributed publicly.
 - Add the final logo file at `assets/kiri-logo.png`.
 - Confirm whether Linux and Windows should stay documented as TODO until their collectors are implemented.

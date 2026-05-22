@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/kiri-logo.png" alt="Kiri logo" width="128" />
-</p>
+<!-- Add assets/kiri-logo.png before public release. -->
 
 <h1 align="center">Kiri</h1>
 
@@ -46,7 +44,7 @@ ports
 
 Kiri currently supports macOS first. Linux and Windows distribution will be added after their platform collectors and release artifacts are implemented.
 
-The command `ports` can conflict with an older npm install of `port-whisperer` or another local tool. If your system already has a `ports` command, the one that runs depends on `PATH` order. Use `which ports` to check what will execute.
+The command `ports` can conflict with another local tool. If your system already has a `ports` command, the one that runs depends on `PATH` order. Use `which ports` to check what will execute.
 
 ## Quick Start
 
@@ -115,17 +113,9 @@ On macOS, Kiri uses:
 
 Docker is optional. If Docker is unavailable or no containers are running, Kiri silently continues without Docker mappings.
 
-## Differences From port-whisperer
+## Acknowledgements
 
-Kiri is a Rust migration and refactor of the JavaScript project `port-whisperer`. The source project is the behavior baseline, but Kiri intentionally changes a few product boundaries:
-
-- Public command is `ports`.
-- macOS is implemented first; Linux and Windows are not claimed as complete.
-- Port detail view is read-only and never prompts to kill.
-- Kill is only performed through explicit `ports kill <target...>`.
-- `logs` supports interactive multi-file selection in a real terminal and deterministic selection in non-interactive output.
-- Color output is controlled with `--color auto|always|never`.
-- Terminal rendering is width-aware and avoids low-contrast primary data.
+Kiri was originally inspired by port-whisperer.
 
 ## Development Checks
 

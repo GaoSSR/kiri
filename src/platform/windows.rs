@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub fn get_listening_ports_raw() -> Vec<RawListenerEntry> {
-    // TODO(phase-2): Port the Windows collector from port-whisperer src/platform/win32.js.
+    // TODO(phase-2): Implement Windows listener collection.
     Vec::new()
 }
 
 pub fn batch_process_info(_pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
-    // TODO(phase-3): Port Windows process enrichment from port-whisperer src/platform/win32.js.
+    // TODO(phase-3): Implement Windows process enrichment.
     HashMap::new()
 }
 
 pub fn batch_cwd(_pids: &[u32]) -> HashMap<u32, PathBuf> {
-    // TODO(phase-3): Port Windows cwd enrichment from port-whisperer src/platform/win32.js.
+    // TODO(phase-3): Implement Windows cwd enrichment.
     HashMap::new()
 }
 
