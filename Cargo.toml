@@ -5,6 +5,14 @@ edition = "2021"
 description = "DevPorts CLI for inspecting local listening ports"
 license = "MIT"
 
+[[bin]]
+name = "devports"
+path = "src/bin/devports.rs"
+
+[[bin]]
+name = "ports"
+path = "src/bin/ports.rs"
+
 [dependencies]
 chrono = "0.4"
 serde_json = "1"
