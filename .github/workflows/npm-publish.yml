@@ -1,0 +1,84 @@
+name: Publish npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Kiri version to publish, without the leading v"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+
+      - name: Download release npm assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "v${VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "kiri-npm-*.tgz" \
+            --pattern "checksums.txt" \
+            --dir dist
+          cd dist
+          grep '^kiri-npm-' checksums.txt > npm-checksums.txt
+          shasum -a 256 -c npm-checksums.txt
+
+      - name: Configure npm token fallback
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${NPM_TOKEN}" ]]; then
+            npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+          fi
+
+      - name: Publish platform packages
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          npm publish "dist/kiri-npm-darwin-arm64-${VERSION}.tgz" \
+            --tag darwin-arm64 \
+            --access public \
+            --provenance \
+            --registry https://registry.npmjs.org/
+          npm publish "dist/kiri-npm-darwin-x64-${VERSION}.tgz" \
+            --tag darwin-x64 \
+            --access public \
+            --provenance \
+            --registry https://registry.npmjs.org/
+
+      - name: Publish root package
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          npm publish "dist/kiri-npm-${VERSION}.tgz" \
+            --access public \
+            --provenance \
+            --registry https://registry.npmjs.org/

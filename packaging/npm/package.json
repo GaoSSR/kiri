@@ -1,10 +1,15 @@
 {
   "name": "@gaossr/kiri",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Kiri CLI for inspecting local development ports; installs the ports command",
   "license": "Apache-2.0",
   "bin": {
     "ports": "./bin/ports.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GaoSSR/kiri.git",
+    "directory": "packaging/npm"
   },
   "files": [
     "LICENSE",
@@ -13,8 +18,8 @@
     "README.md"
   ],
   "optionalDependencies": {
-    "@gaossr/kiri-darwin-arm64": "npm:@gaossr/kiri@0.1.5-darwin-arm64",
-    "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@0.1.5-darwin-x64"
+    "@gaossr/kiri-darwin-arm64": "npm:@gaossr/kiri@0.1.6-darwin-arm64",
+    "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@0.1.6-darwin-x64"
   },
   "scripts": {
     "check": "node --check bin/ports.js && node --check lib/resolve-binary.js && node --check scripts/build-packages.js",

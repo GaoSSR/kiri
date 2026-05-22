@@ -73,6 +73,7 @@ test("builds publishable root and macOS platform npm tarballs from release asset
   assert.equal(rootPackage.name, "@gaossr/kiri");
   assert.equal(rootPackage.version, "9.9.9");
   assert.equal(rootPackage.private, undefined);
+  assert.equal(rootPackage.repository.url, "git+https://github.com/GaoSSR/kiri.git");
   assert.deepEqual(rootPackage.optionalDependencies, {
     "@gaossr/kiri-darwin-arm64": "npm:@gaossr/kiri@9.9.9-darwin-arm64",
     "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@9.9.9-darwin-x64",
@@ -84,6 +85,7 @@ test("builds publishable root and macOS platform npm tarballs from release asset
   assert.equal(armPackage.version, "9.9.9-darwin-arm64");
   assert.deepEqual(armPackage.os, ["darwin"]);
   assert.deepEqual(armPackage.cpu, ["arm64"]);
+  assert.equal(armPackage.repository.url, "git+https://github.com/GaoSSR/kiri.git");
   assert.ok(
     listTarball(armTarball).includes("package/vendor/darwin-arm64/ports")
   );

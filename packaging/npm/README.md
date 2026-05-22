@@ -49,7 +49,7 @@ Build release tarballs from GitHub Release assets:
 
 ```bash
 node scripts/build-packages.js \
-  --version 0.1.5 \
+  --version 0.1.6 \
   --release-dir ../../dist \
   --output-dir ../../dist/npm
 ```
@@ -57,7 +57,7 @@ node scripts/build-packages.js \
 Publish order, after verifying tarball contents and npm authentication:
 
 ```bash
-npm publish ../../dist/npm/kiri-npm-darwin-arm64-0.1.5.tgz --tag darwin-arm64 --access public --registry https://registry.npmjs.org/
-npm publish ../../dist/npm/kiri-npm-darwin-x64-0.1.5.tgz --tag darwin-x64 --access public --registry https://registry.npmjs.org/
-npm publish ../../dist/npm/kiri-npm-0.1.5.tgz --access public --registry https://registry.npmjs.org/
+npm publish ../../dist/npm/kiri-npm-darwin-arm64-0.1.6.tgz --tag darwin-arm64 --access public --registry https://registry.npmjs.org/
+npm publish ../../dist/npm/kiri-npm-darwin-x64-0.1.6.tgz --tag darwin-x64 --access public --registry https://registry.npmjs.org/
+npm publish ../../dist/npm/kiri-npm-0.1.6.tgz --access public --registry https://registry.npmjs.org/
 ```

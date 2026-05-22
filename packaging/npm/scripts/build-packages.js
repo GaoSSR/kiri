@@ -130,6 +130,7 @@ function stagePlatformPackage(version, platform, releaseDir) {
     cpu: [platform.cpu],
     files: ["LICENSE", "README.md", "vendor/"],
     engines: sourcePackage.engines,
+    repository: sourcePackage.repository,
   };
 
   copyIfExists(path.join(PACKAGE_ROOT, "LICENSE"), path.join(stagingDir, "LICENSE"));
