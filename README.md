@@ -18,9 +18,11 @@
   </a>
 </p>
 
+<br clear="right" />
+
 <h3 align="center"><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></h3>
 
-<br clear="right" />
+---
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
@@ -28,8 +30,6 @@
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
-
----
 
 ## Kiri 简介
 
