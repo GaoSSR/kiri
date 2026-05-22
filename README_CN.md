@@ -47,18 +47,17 @@ Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CL
 
 ## 安装
 
-Kiri 正在准备第一次公开发布。下面命令是 GitHub Release artifacts、npm 包和 Homebrew tap 发布后的规划安装入口。
+Kiri 当前已经发布 macOS release artifacts。可以使用 Homebrew 或 GitHub Release 安装脚本：
 
 ```bash
-# 安装脚本
-curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
-
-# npm
-npm install -g @gaossr/kiri
-
 # Homebrew
 brew install gaossr/tap/kiri
+
+# 安装脚本
+curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
+
+npm 包名已预留，但当前还没有发布 npm 安装入口，因为 npm 包还没有内置 release 二进制。
 
 Windows PowerShell 入口已规划，但在 Windows collector 和 release artifact 交付前，脚本会明确提示暂不支持：
 

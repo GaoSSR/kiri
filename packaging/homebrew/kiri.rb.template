@@ -1,5 +1,5 @@
-# Template only. This is not a published Homebrew formula yet.
-# Replace placeholders after GitHub Release artifacts and checksums exist.
+# Template for updating the published Homebrew formula in gaossr/homebrew-tap.
+# Replace placeholders with the target release version and checksums.
 
 class Kiri < Formula
   desc "Inspect local development listening ports"

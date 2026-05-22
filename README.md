@@ -47,18 +47,17 @@ Kiri is a high-performance CLI for managing local development ports, powered by 
 
 ## Install
 
-Kiri is preparing its first public release. The commands below describe the planned release channels after GitHub Release artifacts, npm packaging, and the Homebrew tap are published.
+Kiri currently ships macOS release artifacts. Install with Homebrew or the GitHub Release install script:
 
 ```bash
-# Install script
-curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
-
-# npm
-npm install -g @gaossr/kiri
-
 # Homebrew
 brew install gaossr/tap/kiri
+
+# Install script
+curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
+
+The npm package name is reserved, but npm installation is not published yet because the package does not bundle release binaries.
 
 Windows PowerShell is planned, but Windows runtime support is not available until the Windows collector and release artifacts ship:
 
