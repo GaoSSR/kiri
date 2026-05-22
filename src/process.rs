@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn enriches_processes_with_project_framework_and_description() {
-        let project = unique_temp_dir("devports-process-project");
+        let project = unique_temp_dir("kiri-process-project");
         fs::create_dir_all(&project).unwrap();
         fs::write(
             project.join("package.json"),

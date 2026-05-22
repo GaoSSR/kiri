@@ -1,8 +1,8 @@
 [package]
-name = "devports"
+name = "kiri"
 version = "0.1.0"
 edition = "2021"
-description = "DevPorts CLI for inspecting local listening ports"
+description = "Kiri CLI for inspecting local listening ports"
 license = "MIT"
 
 [[bin]]

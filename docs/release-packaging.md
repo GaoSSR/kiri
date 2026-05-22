@@ -1,6 +1,6 @@
-# DevPorts Release Packaging
+# Kiri Release Packaging
 
-This document defines the intended release packaging plan for DevPorts. It does not claim that any npm package, Homebrew formula, tap, or GitHub Release artifact already exists.
+This document defines the intended release packaging plan for Kiri. It does not claim that any npm package, Homebrew formula, tap, or GitHub Release artifact already exists.
 
 ## Goals
 
@@ -15,10 +15,10 @@ This document defines the intended release packaging plan for DevPorts. It does 
 The npm package should be the most familiar cross-platform install entry:
 
 ```bash
-npm install -g devports
+npm install -g kiri
 ```
 
-The package name can be `devports`, but the installed command must be `ports`:
+The package name can be `kiri`, but the installed command must be `ports`:
 
 ```json
 {
@@ -38,7 +38,7 @@ Recommended implementation:
 
 Current scaffold:
 
-- `packaging/npm/package.json` declares the future `devports` package and exposes the `ports` bin.
+- `packaging/npm/package.json` declares the future `kiri` package and exposes the `ports` bin.
 - `packaging/npm/bin/ports.js` is the Node shim.
 - `packaging/npm/lib/resolve-binary.js` locates a precompiled binary under `vendor/<platform>-<arch>/`.
 - The shim fails with a clear message if package artifacts are not bundled yet.
@@ -54,8 +54,8 @@ npm run pack:dry-run
 
 Alternative implementation:
 
-- Publish platform-specific npm packages such as `devports-darwin-arm64` and `devports-linux-x64`.
-- Make the top-level `devports` package depend on the matching optional package.
+- Publish platform-specific npm packages such as `kiri-darwin-arm64` and `kiri-linux-x64`.
+- Make the top-level `kiri` package depend on the matching optional package.
 - Still expose only the `ports` command.
 
 Open decisions before npm release:
@@ -68,18 +68,18 @@ Open decisions before npm release:
 
 ## Homebrew Formula Plan
 
-DevPorts is a CLI tool, so Homebrew distribution should use a formula, not a cask.
+Kiri is a CLI tool, so Homebrew distribution should use a formula, not a cask.
 
 Intended install command after publication:
 
 ```bash
-brew install devports
+brew install kiri
 ```
 
 If distribution starts through a tap:
 
 ```bash
-brew install <tap-owner>/tap/devports
+brew install <tap-owner>/tap/kiri
 ```
 
 Recommended formula behavior:
@@ -90,7 +90,7 @@ Recommended formula behavior:
 
 Current scaffold:
 
-- `packaging/homebrew/devports.rb.template` is a template only.
+- `packaging/homebrew/kiri.rb.template` is a template only.
 - It uses GitHub Release URL placeholders.
 - It installs `ports`.
 - Its `sha256` values are placeholders and must not be used for a real formula.
@@ -98,7 +98,7 @@ Current scaffold:
 
 Formula source:
 
-- The first DevPorts formula should download precompiled macOS artifacts from GitHub Releases.
+- The first Kiri formula should download precompiled macOS artifacts from GitHub Releases.
 - A source-build formula is not part of the first release plan because normal users should not need a local Rust build path.
 
 Open decisions before Homebrew release:
@@ -113,8 +113,8 @@ GitHub Releases should be the source of truth for versioned binaries.
 
 Recommended artifacts:
 
-- `devports-aarch64-apple-darwin.tar.gz`
-- `devports-x86_64-apple-darwin.tar.gz`
+- `kiri-aarch64-apple-darwin.tar.gz`
+- `kiri-x86_64-apple-darwin.tar.gz`
 - Future Linux artifacts after Linux support is real.
 - Future Windows artifacts after Windows support is real.
 - `checksums.txt`

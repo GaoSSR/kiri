@@ -38,9 +38,9 @@ function runBinary(command) {
   if (!fs.existsSync(resolved)) {
     console.error(
       [
-        `DevPorts npm package artifacts are not bundled yet for ${platformKey()}.`,
+        `Kiri npm package artifacts are not bundled yet for ${platformKey()}.`,
         "This package scaffold is prepared for future release packaging.",
-        "Install from npm only after an official DevPorts release publishes precompiled binaries.",
+        "Install from npm only after an official Kiri release publishes precompiled binaries.",
       ].join("\n")
     );
     process.exit(1);

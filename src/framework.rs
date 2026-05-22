@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn detects_framework_from_package_dependencies() {
-        let root = unique_temp_dir("devports-framework-deps");
+        let root = unique_temp_dir("kiri-framework-deps");
         fs::create_dir_all(&root).unwrap();
 
         let cases = [
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn detects_framework_from_package_dev_dependencies() {
-        let root = unique_temp_dir("devports-framework-dev-deps");
+        let root = unique_temp_dir("kiri-framework-dev-deps");
         fs::create_dir_all(&root).unwrap();
         fs::write(
             root.join("package.json"),
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn malformed_package_json_returns_none_without_panicking() {
-        let root = unique_temp_dir("devports-framework-malformed");
+        let root = unique_temp_dir("kiri-framework-malformed");
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("package.json"), "{not-json").unwrap();
 
@@ -257,7 +257,7 @@ mod tests {
         ];
 
         for (marker, expected) in cases {
-            let root = unique_temp_dir(&format!("devports-framework-{marker}"));
+            let root = unique_temp_dir(&format!("kiri-framework-{marker}"));
             fs::create_dir_all(&root).unwrap();
             fs::write(root.join(marker), "").unwrap();
 

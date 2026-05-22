@@ -100,7 +100,7 @@ fn execute_logs_command(request: &LogRequest, resolver: &SystemResolver) -> LogC
         .unwrap_or_else(|| format!("PID {}", resolved.pid));
     let process_name = resolved.process_name.as_deref().unwrap_or("unknown");
     let mut output = format!(
-        "DevPorts - logs for {label} ({process_name}, PID {})\n\n",
+        "Kiri - logs for {label} ({process_name}, PID {})\n\n",
         resolved.pid
     );
     let log_files = get_process_log_files(resolved.pid);

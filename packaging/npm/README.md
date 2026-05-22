@@ -1,11 +1,11 @@
-# DevPorts npm Packaging
+# Kiri npm Packaging
 
-This directory is the npm packaging scaffold for DevPorts. It is not published yet.
+This directory is the npm packaging scaffold for Kiri. It is not published yet.
 
 The future npm package should install with:
 
 ```bash
-npm install -g devports
+npm install -g kiri
 ```
 
 The package exposes one command:

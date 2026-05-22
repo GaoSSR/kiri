@@ -226,7 +226,7 @@ fn parse_port(value: &str) -> Result<u16, String> {
 }
 
 fn print_help() {
-    println!("DevPorts - inspect local listening ports");
+    println!("Kiri - inspect local listening ports");
     println!();
     println!("Usage:");
     println!("  ports          Show developer listening ports");

@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn find_project_root_walks_up_to_nearest_marker() {
-        let root = unique_temp_dir("devports-package-root");
+        let root = unique_temp_dir("kiri-package-root");
         let nested = root.join("apps/web/src");
         fs::create_dir_all(&nested).unwrap();
         fs::write(root.join("package.json"), "{}").unwrap();
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn find_project_root_supports_cargo_marker() {
-        let root = unique_temp_dir("devports-cargo-root");
+        let root = unique_temp_dir("kiri-cargo-root");
         let nested = root.join("src/bin");
         fs::create_dir_all(&nested).unwrap();
         fs::write(root.join("Cargo.toml"), "[package]\nname = \"sample\"\n").unwrap();
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn find_project_root_returns_original_cwd_when_no_marker_exists() {
-        let cwd = unique_temp_dir("devports-no-marker");
+        let cwd = unique_temp_dir("kiri-no-marker");
         fs::create_dir_all(&cwd).unwrap();
 
         let found = find_project_root(&cwd);
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn docker_mapping_overrides_process_project_and_framework() {
-        let project = unique_temp_dir("devports-docker-project");
+        let project = unique_temp_dir("kiri-docker-project");
         fs::create_dir_all(&project).unwrap();
         fs::write(
             project.join("package.json"),
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn non_docker_listener_detects_framework_from_project_root() {
-        let project = unique_temp_dir("devports-non-docker-package-project");
+        let project = unique_temp_dir("kiri-non-docker-package-project");
         let nested = project.join("apps/web/src");
         fs::create_dir_all(&nested).unwrap();
         fs::write(
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn non_docker_listener_keeps_existing_cwd_project_behavior() {
-        let project = unique_temp_dir("devports-non-docker-project");
+        let project = unique_temp_dir("kiri-non-docker-project");
         let nested = project.join("src");
         fs::create_dir_all(&nested).unwrap();
         fs::write(project.join("Cargo.toml"), "[package]\nname = \"sample\"\n").unwrap();

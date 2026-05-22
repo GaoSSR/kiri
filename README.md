@@ -1,12 +1,12 @@
-# DevPorts
+# Kiri
 
-DevPorts is a Rust CLI for inspecting local listening ports during development. The product name is DevPorts, but the public command is `ports`.
+Kiri is a small Rust CLI that helps you see through the fog of local development ports. The public command is `ports`.
 
-DevPorts shows the process, PID, project, detected framework, uptime, and status behind each listening port. It also supports Docker host-port mapping, safe explicit kill, process listing, log lookup, clean, watch, and readable color-controlled terminal output.
+Kiri shows the process, PID, project, detected framework, uptime, and status behind each listening port. It also supports Docker host-port mapping, safe explicit kill, process listing, log lookup, clean, watch, and readable color-controlled terminal output.
 
 ## Why This Exists
 
-DevPorts is a Rust migration and refactor of the existing JavaScript project `port-whisperer`. The source project is the behavior baseline: DevPorts preserves the core CLI workflows around developer-port discovery, `--all`, port details, Docker mapping, framework detection, logs, clean, watch, and safe process termination.
+Kiri is a Rust migration and refactor of the existing JavaScript project `port-whisperer`. The source project is the behavior baseline: Kiri preserves the core CLI workflows around developer-port discovery, `--all`, port details, Docker mapping, framework detection, logs, clean, watch, and safe process termination.
 
 This Rust version intentionally changes a few product decisions:
 
@@ -36,25 +36,25 @@ This Rust version intentionally changes a few product decisions:
 
 ## Install
 
-Release packaging is planned. After DevPorts is published, install it with npm:
+Release packaging is planned. After Kiri is published, install it with npm:
 
 ```bash
-npm install -g devports
+npm install -g kiri
 ```
 
 Or with Homebrew:
 
 ```bash
-brew install devports
+brew install kiri
 ```
 
-If DevPorts is distributed through a Homebrew tap instead of Homebrew core, use the tap name:
+If Kiri is distributed through a Homebrew tap instead of Homebrew core, use the tap name:
 
 ```bash
-brew install <tap-owner>/tap/devports
+brew install <tap-owner>/tap/kiri
 ```
 
-DevPorts has not been published to npm or Homebrew yet. These are the intended user-facing install commands for the first public release, not a claim that the package or formula is already available.
+Kiri has not been published to npm or Homebrew yet. These are the intended user-facing install commands for the first public release, not a claim that the package or formula is already available.
 
 After installation, verify the command is available:
 
@@ -104,7 +104,7 @@ ports logs 3000 --err
 ports logs 3000 --follow
 ```
 
-If multiple log files are found, DevPorts asks you to choose in a real terminal. In non-interactive output, it selects the best match by deterministic priority.
+If multiple log files are found, Kiri asks you to choose in a real terminal. In non-interactive output, it selects the best match by deterministic priority.
 
 Clean orphaned/zombie developer processes:
 
@@ -145,11 +145,11 @@ ports kill --force 3000
 ports kill -f 3000
 ```
 
-If a numeric target is not a listening port and the PID exists, DevPorts falls back to killing that PID.
+If a numeric target is not a listening port and the PID exists, Kiri falls back to killing that PID.
 
 ## Color Modes
 
-DevPorts defaults to `--color auto`.
+Kiri defaults to `--color auto`.
 
 ```bash
 ports --color auto
@@ -170,7 +170,7 @@ The table avoids forced white primary text so it remains readable on both light 
 - A matching listening port is preferred.
 - Port ranges are expanded one port at a time.
 - Empty ports inside a range are counted but do not stop the whole command.
-- If a numeric target is not a listening port, DevPorts checks whether it is an existing PID.
+- If a numeric target is not a listening port, Kiri checks whether it is an existing PID.
 - Invalid targets, reversed ranges, oversized ranges, and ports outside `1-65535` return clear errors.
 
 Details mode never performs kill. Use `ports kill <target>` when you intend to terminate a process.
@@ -183,7 +183,7 @@ Details mode never performs kill. Use `ports kill <target>` when you intend to t
 | Linux | Module structure exists; real collection is still TODO |
 | Windows | Module structure exists; real collection is still TODO |
 
-On macOS, DevPorts uses:
+On macOS, Kiri uses:
 
 - `lsof -iTCP -sTCP:LISTEN -P -n` for listening TCP ports.
 - `ps -p <pidList> -o pid=,ppid=,stat=,rss=,lstart=,command=` for process details.
@@ -192,7 +192,7 @@ On macOS, DevPorts uses:
 - `lsof -p <pid>` plus `tail` and macOS `log show` / `log stream` for `ports logs`.
 - `docker ps --format "{{.Ports}}\t{{.Names}}\t{{.Image}}"` for Docker host-port mappings when Docker is available.
 
-Docker is optional. If Docker is unavailable or no containers are running, DevPorts silently continues without Docker mappings.
+Docker is optional. If Docker is unavailable or no containers are running, Kiri silently continues without Docker mappings.
 
 ## Not Supported Yet
 
@@ -208,7 +208,7 @@ This first CLI release does not implement:
 
 ## Differences From port-whisperer
 
-DevPorts keeps the source project's useful behavior but changes implementation and product boundaries:
+Kiri keeps the source project's useful behavior but changes implementation and product boundaries:
 
 - Rust CLI instead of JavaScript runtime implementation.
 - Public command is `ports`.

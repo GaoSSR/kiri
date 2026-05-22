@@ -91,16 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "devports"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "ctrlc",
- "serde_json",
- "terminal_size",
-]
-
-[[package]]
 name = "dispatch2"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,6 +182,16 @@ dependencies = [
  "futures-util",
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kiri"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ctrlc",
+ "serde_json",
+ "terminal_size",
 ]
 
 [[package]]

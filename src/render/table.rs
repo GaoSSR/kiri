@@ -163,7 +163,7 @@ fn render_port_table_with_width(
     let mut output = String::new();
 
     output.push_str(BOLD);
-    output.push_str("DevPorts");
+    output.push_str("Kiri");
     output.push_str(RESET);
     output.push_str(" - listening ports\n\n");
 
@@ -239,7 +239,7 @@ fn render_process_table_with_width(
     let mut output = String::new();
 
     output.push_str(BOLD);
-    output.push_str("DevPorts");
+    output.push_str("Kiri");
     output.push_str(RESET);
     output.push_str(" - running processes\n\n");
 
@@ -289,7 +289,7 @@ fn render_process_table_with_width(
 fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> String {
     let mut output = String::new();
 
-    output.push_str(&colorize("DevPorts - Port ", BOLD));
+    output.push_str(&colorize("Kiri - Port ", BOLD));
     output.push_str(&colorize(&format!(":{}", port.port), BOLD_CYAN));
     output.push_str("\n\n");
 

@@ -21,7 +21,7 @@ pub fn run_watch_command() -> i32 {
         handler_running.store(false, Ordering::SeqCst);
     });
 
-    println!("DevPorts - watching for port changes");
+    println!("Kiri - watching for port changes");
     println!("Press Ctrl+C to stop\n");
 
     let mut previous = HashSet::new();

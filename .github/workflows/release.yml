@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS first: DevPorts currently has a real collector only on macOS.
+          # macOS first: Kiri currently has a real collector only on macOS.
           # Add Linux and Windows after their platform collectors are implemented.
           - target: aarch64-apple-darwin
             runner: macos-14
@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          archive="devports-${{ matrix.target }}"
+          archive="kiri-${{ matrix.target }}"
           staging="dist/${archive}"
 
           mkdir -p "${staging}"
@@ -62,8 +62,8 @@ jobs:
         with:
           name: release-${{ matrix.target }}
           path: |
-            dist/devports-${{ matrix.target }}.tar.gz
-            dist/devports-${{ matrix.target }}.sha256
+            dist/kiri-${{ matrix.target }}.tar.gz
+            dist/kiri-${{ matrix.target }}.sha256
           if-no-files-found: error
 
   publish-release:
@@ -89,5 +89,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/devports-*.tar.gz
+            dist/kiri-*.tar.gz
             dist/checksums.txt

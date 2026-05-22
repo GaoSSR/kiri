@@ -1,3 +1,3 @@
 fn main() {
-    std::process::exit(devports::cli::run_from_env());
+    std::process::exit(kiri::cli::run_from_env());
 }
