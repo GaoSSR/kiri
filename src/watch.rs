@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WatchEvent {
-    New(PortInfo),
+    New(Box<PortInfo>),
     Removed(u16),
 }
 
@@ -44,7 +44,7 @@ pub fn diff_ports(previous: &HashSet<u16>, current: &[PortInfo]) -> Vec<WatchEve
 
     for port in current {
         if !previous.contains(&port.port) {
-            events.push(WatchEvent::New(port.clone()));
+            events.push(WatchEvent::New(Box::new(port.clone())));
         }
     }
 
@@ -93,7 +93,7 @@ mod tests {
 
         let events = diff_ports(&previous, &current);
 
-        assert_eq!(events, vec![WatchEvent::New(current[0].clone())]);
+        assert_eq!(events, vec![WatchEvent::New(Box::new(current[0].clone()))]);
     }
 
     #[test]

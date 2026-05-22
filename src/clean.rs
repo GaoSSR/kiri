@@ -33,8 +33,7 @@ pub fn run_clean_command() -> CleanCommandOutcome {
         };
     }
 
-    let result = execute_clean(&candidates, &SystemKiller);
-    result
+    execute_clean(&candidates, &SystemKiller)
 }
 
 pub fn find_clean_candidates(ports: &[PortInfo]) -> Vec<PortInfo> {

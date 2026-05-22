@@ -590,9 +590,9 @@ fn render_table_row(row: &TableRow, widths: &[usize; COLUMN_COUNT], header: bool
     let mut line = String::new();
     push_border_char(&mut line, '│');
 
-    for index in 0..COLUMN_COUNT {
-        let value = truncate_to_width(&row.cells[index], widths[index]);
-        let padded = pad_centered(&value, widths[index]);
+    for (index, (cell, width)) in row.cells.iter().zip(widths.iter().copied()).enumerate() {
+        let value = truncate_to_width(cell, width);
+        let padded = pad_centered(&value, width);
         line.push(' ');
         if header {
             line.push_str(&style_header(&padded));
@@ -615,9 +615,9 @@ fn render_process_table_row(
     let mut line = String::new();
     push_border_char(&mut line, '│');
 
-    for index in 0..PROCESS_COLUMN_COUNT {
-        let value = truncate_to_width(&row.cells[index], widths[index]);
-        let padded = pad_centered(&value, widths[index]);
+    for (index, (cell, width)) in row.cells.iter().zip(widths.iter().copied()).enumerate() {
+        let value = truncate_to_width(cell, width);
+        let padded = pad_centered(&value, width);
         line.push(' ');
         if header {
             line.push_str(&style_header(&padded));
