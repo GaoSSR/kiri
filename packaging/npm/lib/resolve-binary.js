@@ -4,6 +4,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
+const SUPPORTED_PACKAGE_PLATFORMS = new Set(["darwin-arm64", "darwin-x64"]);
+
 function platformKey() {
   const platform = process.platform;
   const arch = process.arch;
@@ -34,13 +36,26 @@ function binaryPath(command) {
 
 function runBinary(command) {
   const resolved = binaryPath(command);
+  const key = platformKey();
+
+  if (!SUPPORTED_PACKAGE_PLATFORMS.has(key)) {
+    console.error(
+      [
+        `Kiri does not have a bundled binary for ${key}.`,
+        "macOS is supported first; Linux and Windows packages will be added after their collectors ship.",
+        "This npm package does not compile Rust locally and does not require Cargo.",
+      ].join("\n")
+    );
+    process.exit(1);
+  }
 
   if (!fs.existsSync(resolved)) {
     console.error(
       [
-        `Kiri npm package artifacts are not bundled yet for ${platformKey()}.`,
+        `Kiri npm package artifacts are not bundled yet for ${key}.`,
         "This package scaffold is prepared for future release packaging.",
         "Install from npm only after an official Kiri release publishes precompiled binaries.",
+        "This npm package does not compile Rust locally and does not require Cargo.",
       ].join("\n")
     );
     process.exit(1);

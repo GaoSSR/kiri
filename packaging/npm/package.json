@@ -1,7 +1,7 @@
 {
-  "name": "kiri",
+  "name": "@gaossr/kiri",
   "version": "0.1.0",
-  "description": "Kiri CLI for inspecting local listening ports",
+  "description": "Kiri CLI for inspecting local development ports; installs the ports command",
   "license": "MIT",
   "private": true,
   "bin": {

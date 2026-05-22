@@ -5,10 +5,10 @@ This directory is the npm packaging scaffold for Kiri. It is not published yet.
 The future npm package should install with:
 
 ```bash
-npm install -g kiri
+npm install -g @gaossr/kiri
 ```
 
-The package exposes one command:
+The package name is `@gaossr/kiri`. It exposes one command:
 
 - `ports`
 
