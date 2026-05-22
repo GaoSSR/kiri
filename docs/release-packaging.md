@@ -23,8 +23,8 @@ The package must expose two bins:
 ```json
 {
   "bin": {
-    "devports": "bin/devports",
-    "ports": "bin/ports"
+    "devports": "./bin/devports.js",
+    "ports": "./bin/ports.js"
   }
 }
 ```
@@ -36,6 +36,22 @@ Recommended implementation:
 - Make the npm package install script download the matching platform binary from GitHub Releases.
 - Keep `bin/devports` and `bin/ports` as small shims that execute the downloaded binary.
 - Do not compile Rust during `npm install`.
+
+Current scaffold:
+
+- `packaging/npm/package.json` declares the future `devports` package and exposes `devports` and `ports` bins.
+- `packaging/npm/bin/devports.js` and `packaging/npm/bin/ports.js` are Node shims.
+- `packaging/npm/lib/resolve-binary.js` locates a precompiled binary under `vendor/<platform>-<arch>/`.
+- The shim fails with a clear message if package artifacts are not bundled yet.
+- The package is marked `private` until the release process is wired and the package name is confirmed.
+
+Current local checks:
+
+```bash
+cd packaging/npm
+npm run check
+npm run pack:dry-run
+```
 
 Alternative implementation:
 
@@ -74,12 +90,18 @@ Recommended formula behavior:
 - Install `ports` as a second binary or symlink to the same executable.
 - Run a smoke test such as `system "#{bin}/devports", "--help"` once help output is stable.
 
-Formula source options:
+Current scaffold:
 
-- Binary formula: download precompiled macOS artifacts from GitHub Releases.
-- Source formula: download a source tarball and build with Cargo in Homebrew.
+- `packaging/homebrew/devports.rb.template` is a template only.
+- It uses GitHub Release URL placeholders.
+- It installs both `devports` and `ports`.
+- Its `sha256` values are placeholders and must not be used for a real formula.
+- No tap is created in this phase.
 
-The binary formula is preferable for normal users because it matches the npm plan and avoids local Rust build time. A source formula is acceptable if Homebrew policy or distribution constraints require it.
+Formula source:
+
+- The first DevPorts formula should download precompiled macOS artifacts from GitHub Releases.
+- A source-build formula is not part of the first release plan because normal users should not need a local Rust build path.
 
 Open decisions before Homebrew release:
 
@@ -98,6 +120,7 @@ Recommended artifacts:
 - `devports-x86_64-apple-darwin.tar.gz`
 - Future Linux artifacts after Linux support is real.
 - Future Windows artifacts after Windows support is real.
+- `checksums.txt`
 
 Each archive should include:
 
@@ -117,6 +140,19 @@ Release checklist:
 - Attach archives and checksums to the GitHub Release.
 - Use those artifacts from npm and Homebrew packaging.
 
+Current scaffold:
+
+- `.github/workflows/release.yml` runs on tag pushes matching `v*`.
+- The workflow is macOS-first because macOS is the only platform with real collection support today.
+- It builds `aarch64-apple-darwin` and `x86_64-apple-darwin` artifacts.
+- It runs `cargo test`.
+- It runs `cargo build --release --target <target> --bin devports --bin ports`.
+- It packages both binaries plus README into target-specific tarballs.
+- It generates per-artifact SHA256 files and combines them into `checksums.txt`.
+- It uploads the tarballs and `checksums.txt` to the GitHub Release.
+
+Linux and Windows targets should only be added after their platform collectors are implemented and tested.
+
 ## Why Cargo Is Not The User Install Path
 
 Cargo is useful for maintainers because it validates that the Rust crate builds, tests pass, and release binaries can be produced in CI.
@@ -134,10 +170,9 @@ For README usage, Cargo commands belong only in maintainer build and test sectio
 
 - Decide final npm package ownership and package name.
 - Decide Homebrew core vs tap.
-- Add release automation for macOS binaries.
-- Add GitHub Release archives and checksums.
-- Add npm package wrapper or platform package structure.
-- Add Homebrew formula.
+- Run the release workflow on a real tag and inspect artifacts.
+- Wire npm packaging to download or bundle the GitHub Release artifacts.
+- Replace Homebrew formula placeholders with real release URLs and SHA256 values.
 - Decide how to handle `ports` command conflicts in release notes.
 - Add stable `--help` output suitable for package smoke tests.
 - Add a license file if the repository is distributed publicly.

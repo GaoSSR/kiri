@@ -1,0 +1,24 @@
+{
+  "name": "devports",
+  "version": "0.1.0",
+  "description": "DevPorts CLI for inspecting local listening ports",
+  "license": "MIT",
+  "private": true,
+  "bin": {
+    "devports": "./bin/devports.js",
+    "ports": "./bin/ports.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "vendor/",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node --check bin/devports.js && node --check bin/ports.js && node --check lib/resolve-binary.js",
+    "pack:dry-run": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-macos:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS first: DevPorts currently has a real collector only on macOS.
+          # Add Linux and Windows after their platform collectors are implemented.
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          - target: x86_64-apple-darwin
+            runner: macos-13
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Test
+        run: cargo test
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }} --bin devports --bin ports
+
+      - name: Package archive
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="devports-${{ matrix.target }}"
+          staging="dist/${archive}"
+
+          mkdir -p "${staging}"
+          cp "target/${{ matrix.target }}/release/devports" "${staging}/devports"
+          cp "target/${{ matrix.target }}/release/ports" "${staging}/ports"
+          cp README.md "${staging}/README.md"
+          if [ -f LICENSE ]; then
+            cp LICENSE "${staging}/LICENSE"
+          fi
+
+          tar -czf "dist/${archive}.tar.gz" -C "${staging}" .
+          shasum -a 256 "dist/${archive}.tar.gz" | sed 's#dist/##' > "dist/${archive}.sha256"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: |
+            dist/devports-${{ matrix.target }}.tar.gz
+            dist/devports-${{ matrix.target }}.sha256
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-macos
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate combined checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat dist/*.sha256 > dist/checksums.txt
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/devports-*.tar.gz
+            dist/checksums.txt
