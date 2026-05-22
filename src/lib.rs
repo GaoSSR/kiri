@@ -1,3 +1,4 @@
+pub mod clean;
 pub mod cli;
 pub mod dev_process;
 pub mod docker;
@@ -9,3 +10,4 @@ pub mod platform;
 pub mod process;
 pub mod render;
 pub mod scanner;
+pub mod watch;

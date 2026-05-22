@@ -1,3 +1,4 @@
+use crate::clean::run_clean_command;
 use crate::kill::run_kill_command;
 use crate::logs::run_logs_command;
 use crate::process::get_all_processes;
@@ -6,6 +7,7 @@ use crate::render::table::{
     render_process_table_with_color_mode, ColorMode,
 };
 use crate::scanner::{get_listening_ports, get_port_details};
+use crate::watch::run_watch_command;
 
 pub fn run_from_env() -> i32 {
     run(std::env::args().skip(1))
@@ -56,6 +58,12 @@ where
             print!("{}", outcome.output);
             outcome.exit_code
         }
+        Ok(Command::Clean) => {
+            let outcome = run_clean_command();
+            print!("{}", outcome.output);
+            outcome.exit_code
+        }
+        Ok(Command::Watch) => run_watch_command(),
         Ok(Command::Help) => {
             print_help();
             0
@@ -88,6 +96,8 @@ enum Command {
     Logs {
         args: Vec<String>,
     },
+    Clean,
+    Watch,
     Help,
 }
 
@@ -128,6 +138,18 @@ where
         "logs" => {
             let logs_args = args.into_iter().skip(1).collect();
             Ok(Command::Logs { args: logs_args })
+        }
+        "clean" => {
+            if args.len() > 1 {
+                return Err(format!("Unknown arguments: {}", args[1..].join(" ")));
+            }
+            Ok(Command::Clean)
+        }
+        "watch" => {
+            if args.len() > 1 {
+                return Err(format!("Unknown arguments: {}", args[1..].join(" ")));
+            }
+            Ok(Command::Watch)
         }
         command => {
             if args.len() > 1 {
@@ -212,6 +234,8 @@ fn print_help() {
     println!("  devports <port>   Show port details (Phase 2)");
     println!("  devports ps       Show running developer processes");
     println!("  devports logs <port|pid> [-f|--follow] [--lines N] [--err]");
+    println!("  devports clean    Find orphaned/zombie dev processes and ask before killing");
+    println!("  devports watch    Monitor developer port changes");
     println!("  devports kill [-f|--force] <port|pid|range> [...]");
     println!("  devports --color <auto|always|never>");
 }
@@ -368,6 +392,20 @@ mod tests {
                     "3001-3002".to_string()
                 ]
             })
+        );
+    }
+
+    #[test]
+    fn parses_clean_and_watch_commands() {
+        assert_eq!(parse_args(["clean"]), Ok(Command::Clean));
+        assert_eq!(parse_args(["watch"]), Ok(Command::Watch));
+        assert_eq!(
+            parse_args(["clean", "extra"]),
+            Err("Unknown arguments: extra".to_string())
+        );
+        assert_eq!(
+            parse_args(["watch", "extra"]),
+            Err("Unknown arguments: extra".to_string())
         );
     }
 }
