@@ -1,6 +1,6 @@
 {
   "name": "@gaossr/kiri",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Kiri CLI for inspecting local development ports; installs the ports command",
   "license": "Apache-2.0",
   "private": true,
