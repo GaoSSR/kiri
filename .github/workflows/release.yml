@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
@@ -58,7 +58,7 @@ jobs:
           shasum -a 256 "dist/${archive}.tar.gz" | sed 's#dist/##' > "dist/${archive}.sha256"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: release-${{ matrix.target }}
           path: |
@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.1
         with:
           pattern: release-*
           path: dist
@@ -86,7 +86,7 @@ jobs:
           cat dist/*.sha256 > dist/checksums.txt
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           files: |
             dist/kiri-*.tar.gz
