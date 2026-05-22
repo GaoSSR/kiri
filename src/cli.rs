@@ -1,6 +1,8 @@
 use crate::kill::run_kill_command;
+use crate::process::get_all_processes;
 use crate::render::table::{
-    render_port_detail_with_color_mode, render_port_table_with_color_mode, ColorMode,
+    render_port_detail_with_color_mode, render_port_table_with_color_mode,
+    render_process_table_with_color_mode, ColorMode,
 };
 use crate::scanner::{get_listening_ports, get_port_details};
 
@@ -37,6 +39,17 @@ where
             print!("{}", outcome.output);
             outcome.exit_code
         }
+        Ok(Command::Ps {
+            show_all,
+            color_mode,
+        }) => {
+            let processes = get_all_processes(show_all);
+            print!(
+                "{}",
+                render_process_table_with_color_mode(&processes, !show_all, color_mode)
+            );
+            0
+        }
         Ok(Command::Help) => {
             print_help();
             0
@@ -62,6 +75,10 @@ enum Command {
     Kill {
         args: Vec<String>,
     },
+    Ps {
+        show_all: bool,
+        color_mode: ColorMode,
+    },
     Help,
 }
 
@@ -72,10 +89,11 @@ where
 {
     let args: Vec<String> = args.into_iter().map(Into::into).collect();
     let (args, color_mode) = extract_color_mode(args)?;
+    let (args, show_all) = extract_show_all(args);
 
     if args.is_empty() {
         return Ok(Command::List {
-            show_all: false,
+            show_all,
             color_mode,
         });
     }
@@ -84,17 +102,19 @@ where
         return Ok(Command::Help);
     }
 
-    if args.len() == 1 && args[0] == "--all" {
-        return Ok(Command::List {
-            show_all: true,
-            color_mode,
-        });
-    }
-
     match args[0].as_str() {
         "kill" => {
             let kill_args = args.into_iter().skip(1).collect();
             Ok(Command::Kill { args: kill_args })
+        }
+        "ps" => {
+            if args.len() > 1 {
+                return Err(format!("Unknown arguments: {}", args[1..].join(" ")));
+            }
+            Ok(Command::Ps {
+                show_all,
+                color_mode,
+            })
         }
         command => {
             if args.len() > 1 {
@@ -130,6 +150,21 @@ fn extract_color_mode(args: Vec<String>) -> Result<(Vec<String>, ColorMode), Str
     Ok((output, color_mode))
 }
 
+fn extract_show_all(args: Vec<String>) -> (Vec<String>, bool) {
+    let mut show_all = false;
+    let mut output = Vec::with_capacity(args.len());
+
+    for arg in args {
+        if arg == "--all" || arg == "-a" {
+            show_all = true;
+        } else {
+            output.push(arg);
+        }
+    }
+
+    (output, show_all)
+}
+
 fn parse_color_mode(value: &str) -> Result<ColorMode, String> {
     match value {
         "auto" => Ok(ColorMode::Auto),
@@ -162,6 +197,7 @@ fn print_help() {
     println!("  devports          Show developer listening ports");
     println!("  devports --all    Show all listening ports");
     println!("  devports <port>   Show port details (Phase 2)");
+    println!("  devports ps       Show running developer processes");
     println!("  devports kill [-f|--force] <port|pid|range> [...]");
     println!("  devports --color <auto|always|never>");
 }
@@ -185,6 +221,13 @@ mod tests {
     fn parses_all_list_command() {
         assert_eq!(
             parse_args(["--all"]),
+            Ok(Command::List {
+                show_all: true,
+                color_mode: ColorMode::Auto,
+            })
+        );
+        assert_eq!(
+            parse_args(["-a"]),
             Ok(Command::List {
                 show_all: true,
                 color_mode: ColorMode::Auto,
@@ -218,6 +261,31 @@ mod tests {
         assert_eq!(
             parse_args(["--color", "auto", "--all"]),
             Ok(Command::List {
+                show_all: true,
+                color_mode: ColorMode::Auto,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_ps_command_with_all_and_color() {
+        assert_eq!(
+            parse_args(["ps"]),
+            Ok(Command::Ps {
+                show_all: false,
+                color_mode: ColorMode::Auto,
+            })
+        );
+        assert_eq!(
+            parse_args(["ps", "--all", "--color=never"]),
+            Ok(Command::Ps {
+                show_all: true,
+                color_mode: ColorMode::Never,
+            })
+        );
+        assert_eq!(
+            parse_args(["--all", "ps"]),
+            Ok(Command::Ps {
                 show_all: true,
                 color_mode: ColorMode::Auto,
             })

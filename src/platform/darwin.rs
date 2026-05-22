@@ -1,6 +1,7 @@
-use crate::model::{RawListenerEntry, RawProcessInfo};
+use crate::model::{RawListenerEntry, RawProcessEntry, RawProcessInfo};
 
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -27,7 +28,7 @@ pub fn parse_lsof_listeners(raw: &str) -> Vec<RawListenerEntry> {
 
     for line in raw.lines().skip(1) {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 9 {
+        if parts.len() < 10 {
             continue;
         }
 
@@ -173,6 +174,72 @@ pub fn parse_cwd_output(raw: &str) -> HashMap<u32, PathBuf> {
     cwd
 }
 
+pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
+    let output = match Command::new("ps")
+        .args(["-eo", "pid=,pcpu=,pmem=,rss=,lstart=,command="])
+        .output()
+    {
+        Ok(output) => output,
+        Err(_) => return Vec::new(),
+    };
+
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_all_processes(&raw, std::process::id())
+}
+
+pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> {
+    let mut processes = Vec::new();
+    let mut seen = HashSet::new();
+
+    for line in raw.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 9 {
+            continue;
+        }
+
+        let pid = match parts[0].parse::<u32>() {
+            Ok(pid) => pid,
+            Err(_) => continue,
+        };
+        if pid <= 1 || pid == current_pid || !seen.insert(pid) {
+            continue;
+        }
+
+        let cpu = match parts[1].parse::<f64>() {
+            Ok(cpu) => cpu,
+            Err(_) => continue,
+        };
+        let mem_percent = match parts[2].parse::<f64>() {
+            Ok(mem_percent) => mem_percent,
+            Err(_) => continue,
+        };
+        let rss_kb = match parts[3].parse::<u64>() {
+            Ok(rss_kb) => rss_kb,
+            Err(_) => continue,
+        };
+        let command = parts[9..].join(" ");
+        if command.is_empty() {
+            continue;
+        }
+
+        processes.push(RawProcessEntry {
+            pid,
+            process_name: process_name_from_command(&command),
+            cpu,
+            mem_percent,
+            rss_kb,
+            lstart: format!("{} {} {} {}", parts[5], parts[6], parts[7], parts[8]),
+            command,
+        });
+    }
+
+    processes
+}
+
 fn parse_port_from_name_field(name_field: &str) -> Option<u16> {
     let (_, port_text) = name_field.rsplit_once(':')?;
     if port_text.is_empty() || !port_text.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -185,6 +252,15 @@ fn parse_port_from_name_field(name_field: &str) -> Option<u16> {
     }
 
     Some(port as u16)
+}
+
+fn process_name_from_command(command: &str) -> String {
+    let first = command.split_whitespace().next().unwrap_or(command);
+    Path::new(first)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(first)
+        .to_string()
 }
 
 #[cfg(test)]
@@ -313,5 +389,40 @@ node    42872 user  cwd    DIR   1,18      640 1234 relative/project
         let cwd = parse_cwd_output(raw);
 
         assert!(cwd.is_empty());
+    }
+
+    #[test]
+    fn parses_all_process_lines_with_cpu_memory_and_command() {
+        let raw = "\
+42872 12.5 1.0 184320 Mon May 20 14:12:44 2026 /usr/local/bin/node /repo/app/server.js
+";
+
+        let processes = parse_all_processes(raw, 99999);
+
+        assert_eq!(processes.len(), 1);
+        assert_eq!(processes[0].pid, 42872);
+        assert_eq!(processes[0].process_name, "node");
+        assert_eq!(processes[0].cpu, 12.5);
+        assert_eq!(processes[0].mem_percent, 1.0);
+        assert_eq!(processes[0].rss_kb, 184320);
+        assert_eq!(processes[0].lstart, "May 20 14:12:44 2026");
+        assert_eq!(
+            processes[0].command,
+            "/usr/local/bin/node /repo/app/server.js"
+        );
+    }
+
+    #[test]
+    fn ignores_invalid_all_process_lines_and_current_process() {
+        let raw = "\
+1 0.0 0.0 1 Mon May 20 14:12:44 2026 /sbin/launchd
+42 0.0 0.0 1 Mon May 20 14:12:44 2026 /bin/current
+not-a-pid 0.0 0.0 1 Mon May 20 14:12:44 2026 /bin/nope
+42872 bad 1.0 184320 Mon May 20 14:12:44 2026 node
+";
+
+        let processes = parse_all_processes(raw, 42);
+
+        assert!(processes.is_empty());
     }
 }

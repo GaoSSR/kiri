@@ -5,5 +5,6 @@ pub mod framework;
 pub mod kill;
 pub mod model;
 pub mod platform;
+pub mod process;
 pub mod render;
 pub mod scanner;

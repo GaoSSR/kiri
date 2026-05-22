@@ -7,7 +7,7 @@ pub mod linux;
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-use crate::model::{RawListenerEntry, RawProcessInfo};
+use crate::model::{RawListenerEntry, RawProcessEntry, RawProcessInfo};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -21,6 +21,10 @@ pub fn batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
 
 pub fn batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
     platform_batch_cwd(pids)
+}
+
+pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
+    platform_get_all_processes_raw()
 }
 
 #[cfg(target_os = "macos")]
@@ -38,6 +42,11 @@ fn platform_batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
     darwin::batch_cwd(pids)
 }
 
+#[cfg(target_os = "macos")]
+fn platform_get_all_processes_raw() -> Vec<RawProcessEntry> {
+    darwin::get_all_processes_raw()
+}
+
 #[cfg(target_os = "linux")]
 fn platform_get_listening_ports_raw() -> Vec<RawListenerEntry> {
     linux::get_listening_ports_raw()
@@ -51,6 +60,11 @@ fn platform_batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
 #[cfg(target_os = "linux")]
 fn platform_batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
     linux::batch_cwd(pids)
+}
+
+#[cfg(target_os = "linux")]
+fn platform_get_all_processes_raw() -> Vec<RawProcessEntry> {
+    linux::get_all_processes_raw()
 }
 
 #[cfg(target_os = "windows")]
@@ -68,6 +82,11 @@ fn platform_batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
     windows::batch_cwd(pids)
 }
 
+#[cfg(target_os = "windows")]
+fn platform_get_all_processes_raw() -> Vec<RawProcessEntry> {
+    windows::get_all_processes_raw()
+}
+
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 fn platform_get_listening_ports_raw() -> Vec<RawListenerEntry> {
     Vec::new()
@@ -81,4 +100,9 @@ fn platform_batch_process_info(_pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 fn platform_batch_cwd(_pids: &[u32]) -> HashMap<u32, PathBuf> {
     HashMap::new()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+fn platform_get_all_processes_raw() -> Vec<RawProcessEntry> {
+    Vec::new()
 }

@@ -16,6 +16,17 @@ pub struct RawProcessInfo {
     pub command: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawProcessEntry {
+    pub pid: u32,
+    pub process_name: String,
+    pub cpu: f64,
+    pub mem_percent: f64,
+    pub rss_kb: u64,
+    pub lstart: String,
+    pub command: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProcessInfo {
     pub pid: u32,
@@ -58,6 +69,21 @@ pub struct PortInfo {
     pub memory: Option<String>,
     pub uptime: Option<String>,
     pub start_time: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessListInfo {
+    pub pid: u32,
+    pub process_name: String,
+    pub command: String,
+    pub description: String,
+    pub cpu: f64,
+    pub rss_kb: u64,
+    pub memory: Option<String>,
+    pub cwd: Option<PathBuf>,
+    pub project_name: Option<String>,
+    pub framework: Option<String>,
+    pub uptime: Option<String>,
 }
 
 impl From<RawListenerEntry> for PortInfo {

@@ -1,4 +1,4 @@
-use crate::model::{RawListenerEntry, RawProcessInfo};
+use crate::model::{RawListenerEntry, RawProcessEntry, RawProcessInfo};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -15,4 +15,9 @@ pub fn batch_process_info(_pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
 pub fn batch_cwd(_pids: &[u32]) -> HashMap<u32, PathBuf> {
     // TODO(phase-3): Port Windows cwd enrichment from port-whisperer src/platform/win32.js.
     HashMap::new()
+}
+
+pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
+    // TODO(phase-10): Port Windows process listing after Windows support is made real.
+    Vec::new()
 }

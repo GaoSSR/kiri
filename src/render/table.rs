@@ -1,4 +1,4 @@
-use crate::model::PortInfo;
+use crate::model::{PortInfo, ProcessListInfo};
 use std::io::IsTerminal;
 use terminal_size::{terminal_size, Width};
 
@@ -37,6 +37,27 @@ const HEADERS: [&str; COLUMN_COUNT] = [
     "STATUS",
 ];
 
+const PROCESS_COLUMN_COUNT: usize = 8;
+const PROCESS_PID_COL: usize = 0;
+const PROCESS_NAME_COL: usize = 1;
+const PROCESS_CPU_COL: usize = 2;
+const PROCESS_MEMORY_COL: usize = 3;
+const PROCESS_PROJECT_COL: usize = 4;
+const PROCESS_FRAMEWORK_COL: usize = 5;
+const PROCESS_UPTIME_COL: usize = 6;
+const PROCESS_DESCRIPTION_COL: usize = 7;
+const PROCESS_BORDER_OVERHEAD: usize = 1 + PROCESS_COLUMN_COUNT * 3;
+const PROCESS_HEADERS: [&str; PROCESS_COLUMN_COUNT] = [
+    "PID",
+    "PROCESS",
+    "CPU%",
+    "MEM",
+    "PROJECT",
+    "FRAMEWORK",
+    "UPTIME",
+    "WHAT",
+];
+
 const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
     ColumnSpec::stable(6, Align::Left),
     ColumnSpec::flex(7, 5, 3, Align::Left),
@@ -45,6 +66,17 @@ const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
     ColumnSpec::flex(9, 4, 2, Align::Left),
     ColumnSpec::stable(6, Align::Left),
     ColumnSpec::stable(7, Align::Left),
+];
+
+const PROCESS_COLUMN_SPECS: [ColumnSpec; PROCESS_COLUMN_COUNT] = [
+    ColumnSpec::stable(5, Align::Right),
+    ColumnSpec::flex(7, 5, 3, Align::Left),
+    ColumnSpec::stable(5, Align::Right),
+    ColumnSpec::stable(8, Align::Right),
+    ColumnSpec::flex(7, 4, 2, Align::Left),
+    ColumnSpec::flex(9, 4, 2, Align::Left),
+    ColumnSpec::stable(6, Align::Left),
+    ColumnSpec::flex(8, 5, 1, Align::Left),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,6 +116,11 @@ impl ColumnSpec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TableRow {
     cells: [String; COLUMN_COUNT],
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ProcessTableRow {
+    cells: [String; PROCESS_COLUMN_COUNT],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +218,72 @@ pub fn render_port_detail_with_color_mode(port: &PortInfo, color_mode: ColorMode
         render_port_detail_with_width(port, current_terminal_width()),
         color_mode,
     )
+}
+
+pub fn render_process_table_with_color_mode(
+    processes: &[ProcessListInfo],
+    filtered: bool,
+    color_mode: ColorMode,
+) -> String {
+    apply_color_mode(
+        render_process_table_with_width(processes, filtered, current_terminal_width()),
+        color_mode,
+    )
+}
+
+fn render_process_table_with_width(
+    processes: &[ProcessListInfo],
+    filtered: bool,
+    terminal_width: usize,
+) -> String {
+    let mut output = String::new();
+
+    output.push_str(BOLD);
+    output.push_str("DevPorts");
+    output.push_str(RESET);
+    output.push_str(" - running processes\n\n");
+
+    if processes.is_empty() {
+        if filtered {
+            output.push_str("No developer processes found.\n");
+            output.push_str("Run `devports ps --all` to show every process.\n");
+        } else {
+            output.push_str("No processes found.\n");
+        }
+        return output;
+    }
+
+    let rows = process_rows(processes);
+    let widths = calculate_process_column_widths(&rows, terminal_width);
+    let header = ProcessTableRow {
+        cells: PROCESS_HEADERS.map(ToOwned::to_owned),
+    };
+
+    push_process_border(&mut output, &widths, BorderKind::Top);
+    output.push_str(&render_process_table_row(&header, &widths, true));
+    push_process_border(&mut output, &widths, BorderKind::Middle);
+    for row in &rows {
+        output.push_str(&render_process_table_row(row, &widths, false));
+    }
+    push_process_border(&mut output, &widths, BorderKind::Bottom);
+
+    output.push('\n');
+    output.push_str(&format!(
+        "{} process{}",
+        colorize(&processes.len().to_string(), GREEN),
+        if processes.len() == 1 { "" } else { "es" }
+    ));
+    if filtered {
+        output.push_str(&format!(
+            " - run `{}` `{}` `{}` to show everything",
+            colorize("devports", BOLD_CYAN),
+            colorize("ps", PURPLE),
+            colorize("--all", YELLOW)
+        ));
+    }
+    output.push('\n');
+
+    output
 }
 
 fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> String {
@@ -292,6 +395,27 @@ fn port_rows(ports: &[PortInfo]) -> Vec<TableRow> {
         .collect()
 }
 
+fn process_rows(processes: &[ProcessListInfo]) -> Vec<ProcessTableRow> {
+    processes
+        .iter()
+        .map(|process| ProcessTableRow {
+            cells: [
+                process.pid.to_string(),
+                process.process_name.clone(),
+                format!("{:.1}", process.cpu),
+                process.memory.clone().unwrap_or_else(|| "-".to_string()),
+                process
+                    .project_name
+                    .clone()
+                    .unwrap_or_else(|| "-".to_string()),
+                process.framework.clone().unwrap_or_else(|| "-".to_string()),
+                process.uptime.clone().unwrap_or_else(|| "-".to_string()),
+                process.description.clone(),
+            ],
+        })
+        .collect()
+}
+
 fn calculate_column_widths(rows: &[TableRow], terminal_width: usize) -> [usize; COLUMN_COUNT] {
     let mut widths = ideal_column_widths(rows);
     let target_content_width = terminal_width
@@ -310,11 +434,49 @@ fn calculate_column_widths(rows: &[TableRow], terminal_width: usize) -> [usize; 
     widths
 }
 
+fn calculate_process_column_widths(
+    rows: &[ProcessTableRow],
+    terminal_width: usize,
+) -> [usize; PROCESS_COLUMN_COUNT] {
+    let mut widths = ideal_process_column_widths(rows);
+    let target_content_width = terminal_width
+        .saturating_sub(PROCESS_BORDER_OVERHEAD)
+        .max(total_process_hard_min_width());
+
+    if total_process_content_width(&widths) <= target_content_width {
+        return widths;
+    }
+
+    shrink_process_columns(&mut widths, target_content_width, |spec| spec.soft_min);
+    if total_process_content_width(&widths) > target_content_width {
+        shrink_process_columns(&mut widths, target_content_width, |spec| spec.hard_min);
+    }
+
+    widths
+}
+
 fn ideal_column_widths(rows: &[TableRow]) -> [usize; COLUMN_COUNT] {
     let mut widths = [0; COLUMN_COUNT];
 
     for index in 0..COLUMN_COUNT {
         widths[index] = visible_width(HEADERS[index]).max(COLUMN_SPECS[index].soft_min);
+    }
+
+    for row in rows {
+        for (index, cell) in row.cells.iter().enumerate() {
+            widths[index] = widths[index].max(visible_width(cell));
+        }
+    }
+
+    widths
+}
+
+fn ideal_process_column_widths(rows: &[ProcessTableRow]) -> [usize; PROCESS_COLUMN_COUNT] {
+    let mut widths = [0; PROCESS_COLUMN_COUNT];
+
+    for index in 0..PROCESS_COLUMN_COUNT {
+        widths[index] =
+            visible_width(PROCESS_HEADERS[index]).max(PROCESS_COLUMN_SPECS[index].soft_min);
     }
 
     for row in rows {
@@ -360,11 +522,56 @@ where
     }
 }
 
+fn shrink_process_columns<F>(
+    widths: &mut [usize; PROCESS_COLUMN_COUNT],
+    target_width: usize,
+    floor_for: F,
+) where
+    F: Fn(ColumnSpec) -> usize,
+{
+    let mut priorities: Vec<u8> = PROCESS_COLUMN_SPECS
+        .iter()
+        .filter_map(|spec| (spec.shrink_priority != u8::MAX).then_some(spec.shrink_priority))
+        .collect();
+    priorities.sort_unstable();
+    priorities.dedup();
+
+    for priority in priorities {
+        loop {
+            let current = total_process_content_width(widths);
+            if current <= target_width {
+                return;
+            }
+
+            let Some(index) = (0..PROCESS_COLUMN_COUNT)
+                .filter(|index| PROCESS_COLUMN_SPECS[*index].shrink_priority == priority)
+                .filter(|index| widths[*index] > floor_for(PROCESS_COLUMN_SPECS[*index]))
+                .max_by_key(|index| widths[*index] - floor_for(PROCESS_COLUMN_SPECS[*index]))
+            else {
+                break;
+            };
+
+            let floor = floor_for(PROCESS_COLUMN_SPECS[index]);
+            let reducible = widths[index] - floor;
+            let needed = current - target_width;
+            widths[index] -= reducible.min(needed);
+        }
+    }
+}
+
 fn total_hard_min_width() -> usize {
     COLUMN_SPECS.iter().map(|spec| spec.hard_min).sum()
 }
 
 fn total_content_width(widths: &[usize; COLUMN_COUNT]) -> usize {
+    widths.iter().sum()
+}
+
+fn total_process_hard_min_width() -> usize {
+    PROCESS_COLUMN_SPECS.iter().map(|spec| spec.hard_min).sum()
+}
+
+fn total_process_content_width(widths: &[usize; PROCESS_COLUMN_COUNT]) -> usize {
     widths.iter().sum()
 }
 
@@ -401,6 +608,31 @@ fn push_border(output: &mut String, widths: &[usize; COLUMN_COUNT], kind: Border
     output.push('\n');
 }
 
+fn push_process_border(
+    output: &mut String,
+    widths: &[usize; PROCESS_COLUMN_COUNT],
+    kind: BorderKind,
+) {
+    let (left, fill, junction, right) = match kind {
+        BorderKind::Top => ('┌', '─', '┬', '┐'),
+        BorderKind::Middle => ('├', '─', '┼', '┤'),
+        BorderKind::Bottom => ('└', '─', '┴', '┘'),
+    };
+
+    output.push_str(DIM);
+    output.push(left);
+    for (index, width) in widths.iter().enumerate() {
+        output.push_str(&fill.to_string().repeat(width + 2));
+        output.push(if index + 1 == PROCESS_COLUMN_COUNT {
+            right
+        } else {
+            junction
+        });
+    }
+    output.push_str(RESET);
+    output.push('\n');
+}
+
 fn render_table_row(row: &TableRow, widths: &[usize; COLUMN_COUNT], header: bool) -> String {
     let mut line = String::new();
     push_border_char(&mut line, '│');
@@ -413,6 +645,31 @@ fn render_table_row(row: &TableRow, widths: &[usize; COLUMN_COUNT], header: bool
             line.push_str(&style_header(&padded));
         } else {
             line.push_str(&style_table_cell(index, &value, &padded));
+        }
+        line.push(' ');
+        push_border_char(&mut line, '│');
+    }
+
+    line.push('\n');
+    line
+}
+
+fn render_process_table_row(
+    row: &ProcessTableRow,
+    widths: &[usize; PROCESS_COLUMN_COUNT],
+    header: bool,
+) -> String {
+    let mut line = String::new();
+    push_border_char(&mut line, '│');
+
+    for index in 0..PROCESS_COLUMN_COUNT {
+        let value = truncate_to_width(&row.cells[index], widths[index]);
+        let padded = pad_aligned(&value, widths[index], PROCESS_COLUMN_SPECS[index].align);
+        line.push(' ');
+        if header {
+            line.push_str(&style_header(&padded));
+        } else {
+            line.push_str(&style_process_cell(index, &value, &padded));
         }
         line.push(' ');
         push_border_char(&mut line, '│');
@@ -463,6 +720,53 @@ fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
             }
         }
         STATUS_COL => style_status(value, padded),
+        _ => padded.to_string(),
+    }
+}
+
+fn style_process_cell(index: usize, value: &str, padded: &str) -> String {
+    match index {
+        PROCESS_PID_COL => padded.to_string(),
+        PROCESS_NAME_COL => colorize(padded, PURPLE),
+        PROCESS_CPU_COL => {
+            let cpu = value.parse::<f64>().unwrap_or_default();
+            if cpu > 25.0 {
+                colorize(padded, RED)
+            } else if cpu > 5.0 {
+                colorize(padded, YELLOW)
+            } else {
+                colorize(padded, GREEN)
+            }
+        }
+        PROCESS_MEMORY_COL => {
+            if value == "-" {
+                colorize(padded, DIM)
+            } else {
+                colorize(padded, TOKEN_GREEN)
+            }
+        }
+        PROCESS_PROJECT_COL => {
+            if value == "-" {
+                colorize(padded, DIM)
+            } else {
+                colorize(padded, BOLD_BLUE)
+            }
+        }
+        PROCESS_FRAMEWORK_COL => style_framework(value, padded),
+        PROCESS_UPTIME_COL => {
+            if value == "-" {
+                colorize(padded, DIM)
+            } else {
+                colorize(padded, YELLOW)
+            }
+        }
+        PROCESS_DESCRIPTION_COL => {
+            if value == "-" {
+                colorize(padded, DIM)
+            } else {
+                padded.to_string()
+            }
+        }
         _ => padded.to_string(),
     }
 }
