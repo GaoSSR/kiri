@@ -42,7 +42,7 @@ jobs:
             --pattern "checksums.txt" \
             --dir dist
           cd dist
-          grep '^kiri-npm-' checksums.txt > npm-checksums.txt
+          awk '$2 ~ /^kiri-npm-/ { print }' checksums.txt > npm-checksums.txt
           shasum -a 256 -c npm-checksums.txt
 
       - name: Configure npm token fallback
