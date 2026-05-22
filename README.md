@@ -1,27 +1,28 @@
 <h4 align="right"><strong><a href="./README.md">简体中文</a></strong> | <a href="./README.en.md">English</a></h4>
 
-<p>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-    <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
-  </picture>
-  <a href="https://github.com/GaoSSR/kiri">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
-      <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="64" style="width: auto;">
-    </picture>
-  </a>
-  <br />
-</p>
-
-<br />
-<br />
-
-### <small><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></small>
-
-<br clear="right" />
+<table>
+  <tr>
+    <td width="48%" align="center">
+      <a href="https://github.com/GaoSSR/kiri">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
+          <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
+          <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="74">
+        </picture>
+      </a>
+      <br />
+      <br />
+      <strong><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></strong>
+    </td>
+    <td width="52%" align="center">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+        <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+        <img src="assets/kiri-logo.png" alt="Kiri logo" width="430">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
