@@ -1,8 +1,8 @@
-<p align="center">
-  <img src="assets/kiri-logo.png" alt="Kiri" width="300" />
-</p>
-
-<h1 align="center">Kiri</h1>
+<h1 align="center">
+  <img src="assets/kiri-logo.png" alt="Kiri" width="220" />
+  <br />
+  Kiri
+</h1>
 
 <p align="center">
   <strong>See through the fog of local development ports.</strong>
