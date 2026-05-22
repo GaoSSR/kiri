@@ -18,9 +18,7 @@
   </a>
 </p>
 
-<p align="center">
-  <sub><strong><nobr>High-performance local development port management CLI, powered by Rust</nobr></strong></sub>
-</p>
+<h3 align="center"><nobr>High-performance local development port management CLI, powered by Rust</nobr></h3>
 
 <br clear="right" />
 

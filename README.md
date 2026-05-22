@@ -18,9 +18,7 @@
   </a>
 </p>
 
-<p align="center">
-  <sub><strong><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></strong></sub>
-</p>
+<h3 align="center"><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></h3>
 
 <br clear="right" />
 
