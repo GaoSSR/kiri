@@ -5,7 +5,7 @@ class Kiri < Formula
   desc "Inspect local development listening ports"
   homepage "https://github.com/gaossr/kiri"
   version "<version>"
-  license "MIT"
+  license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.arm?

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue" />
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
   <img alt="macOS supported first" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
   <img alt="Built with Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
