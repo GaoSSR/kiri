@@ -1,5 +1,11 @@
 <h4 align="right"><a href="./README.md">简体中文</a> | <strong><a href="./README.en.md">English</a></strong></h4>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
+  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="360">
+</picture>
+
 <p>
   <a href="https://github.com/GaoSSR/kiri">
     <picture>
@@ -11,15 +17,9 @@
   <br />
 </p>
 
-### Local development port management CLI
+### High-performance local development port management CLI, powered by Rust
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-  <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="300">
-</picture>
-
-Kiri is a CLI for managing local development ports. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
+Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
 <p>
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
@@ -27,6 +27,10 @@ Kiri is a CLI for managing local development ports. It helps you quickly see whi
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
+
+<br clear="right" />
+
+---
 
 ## Core Usage
 
