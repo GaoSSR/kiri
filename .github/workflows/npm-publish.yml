@@ -45,16 +45,6 @@ jobs:
           awk '$2 ~ /^kiri-npm-/ { print }' checksums.txt > npm-checksums.txt
           shasum -a 256 -c npm-checksums.txt
 
-      - name: Configure npm token fallback
-        shell: bash
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -n "${NPM_TOKEN}" ]]; then
-            npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
-          fi
-
       - name: Publish platform packages
         shell: bash
         env:

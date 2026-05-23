@@ -2,7 +2,7 @@
 
 This directory packages Kiri for npm with precompiled macOS binaries.
 
-After the npm package is published, users install it with:
+Users install it with:
 
 ```bash
 npm install -g @gaossr/kiri
@@ -54,10 +54,28 @@ node scripts/build-packages.js \
   --output-dir ../../dist/npm
 ```
 
-Publish order, after verifying tarball contents and npm authentication:
+Publishing uses npm Trusted Publishing through GitHub Actions OIDC. Do not store
+`NPM_TOKEN` in GitHub Actions secrets for the normal release path.
+
+Required npm trusted publisher configuration for `@gaossr/kiri`:
+
+- Provider: GitHub Actions
+- Repository: `GaoSSR/kiri`
+- Workflow filename: `npm-publish.yml`
+- Allowed action: `npm publish`
+
+The equivalent npm CLI setup command is:
 
 ```bash
-npm publish ../../dist/npm/kiri-npm-darwin-arm64-0.1.6.tgz --tag darwin-arm64 --access public --registry https://registry.npmjs.org/
-npm publish ../../dist/npm/kiri-npm-darwin-x64-0.1.6.tgz --tag darwin-x64 --access public --registry https://registry.npmjs.org/
-npm publish ../../dist/npm/kiri-npm-0.1.6.tgz --access public --registry https://registry.npmjs.org/
+npm trust github @gaossr/kiri --file npm-publish.yml --repo GaoSSR/kiri --allow-publish
+```
+
+This requires npm CLI 11.10.0 or newer, write access to `@gaossr/kiri`, and
+2FA enabled on the npm account.
+
+After the Release workflow has uploaded and checksummed the npm tarballs, publish
+the already-built artifacts with:
+
+```bash
+gh workflow run "Publish npm" --repo GaoSSR/kiri --ref main -f version=<version>
 ```
