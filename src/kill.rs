@@ -364,8 +364,11 @@ mod tests {
     use super::*;
     use crate::model::{ProcessInfo, ProcessStatus};
     use std::collections::{HashMap, HashSet};
+    #[cfg(unix)]
     use std::process::Command;
+    #[cfg(unix)]
     use std::thread::sleep;
+    #[cfg(unix)]
     use std::time::Duration;
 
     #[derive(Default)]

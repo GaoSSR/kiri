@@ -6,6 +6,12 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.15 - 2026-05-23
+
+### Fixed
+
+- Removed Windows test warnings from Unix-only `ports kill` test imports.
+
 ## 0.1.14 - 2026-05-23
 
 ### Fixed
