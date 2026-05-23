@@ -6,6 +6,27 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.17 - 2026-05-24
+
+### Added
+
+- Added the compact Kiri terminal companion to the default `ports` view, with
+  the active port count shown beside the companion.
+
+### Changed
+
+- Moved the default `ports` summary into the companion line and removed the
+  redundant footer hint from the table view.
+- Kept the `Status` column visually balanced by giving status values symmetric
+  horizontal padding.
+- Removed the Codex Pet assets and generator from the CLI repository; the pet
+  package now lives in its own repository.
+
+### Fixed
+
+- Removed backtick characters from runtime command hints such as
+  `Run ports --all to show every listener.`
+
 ## 0.1.15 - 2026-05-23
 
 ### Fixed

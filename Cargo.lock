@@ -186,7 +186,7 @@ dependencies = [
 
 [[package]]
 name = "kiri"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "chrono",
  "ctrlc",
