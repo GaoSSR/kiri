@@ -108,3 +108,9 @@ cargo run --bin ports
 cargo run --bin ports -- --all
 cargo run --bin ports -- ps
 ```
+
+## Project Resources
+
+- [Changelog](./CHANGELOG.md)
+- [Contributing guide](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)

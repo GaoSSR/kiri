@@ -108,3 +108,9 @@ cargo run --bin ports
 cargo run --bin ports -- --all
 cargo run --bin ports -- ps
 ```
+
+## 项目资料
+
+- [更新日志](./CHANGELOG.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [安全策略](./SECURITY.md)

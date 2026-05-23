@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a reproducible Kiri problem.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a Kiri issue. Please include enough detail to reproduce the problem.
+  - type: input
+    id: version
+    attributes:
+      label: Kiri version
+      description: Run `ports --help` or note the install source if the command cannot start.
+      placeholder: "0.1.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-source
+    attributes:
+      label: Install source
+      options:
+        - npm
+        - Homebrew
+        - GitHub Release install script
+        - Built from source
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: Include macOS version and CPU architecture.
+      placeholder: "macOS 15.5, Apple Silicon"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the exact command that failed.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra context
+      description: Include relevant output, logs, or screenshots.
