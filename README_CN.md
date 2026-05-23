@@ -38,6 +38,23 @@
 
 Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
 
+## 认识 Kiri
+
+默认 `ports` 视图现在会用一个轻量终端伙伴开场，而不是静态标题：
+
+```text
+☁ Kiri is watching 5 ports
+```
+
+仓库里已经包含一个 Codex 自定义电子宠物包，路径是 `assets/codex-pet/kiri`。可以这样安装到本机 Codex：
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/pets"
+cp -R assets/codex-pet/kiri "${CODEX_HOME:-$HOME/.codex}/pets/kiri"
+```
+
+然后在 Codex `Settings > Appearance > Pets` 里选择 `Kiri`。
+
 ## 核心用法
 
 - **快速查看本地开发端口：** `ports`

@@ -368,6 +368,58 @@ pub fn is_log_like_path(path: &str) -> bool {
 }
 
 fn common_framework_logs(cwd: &Path) -> Vec<LogFile> {
+    let mut files = Vec::new();
+    let component_name = cwd.file_name().and_then(|name| name.to_str());
+
+    for root in log_search_roots(cwd) {
+        files.extend(fixed_framework_log_paths(&root));
+        if let Some(component_name) = component_name {
+            files.extend(component_log_paths(&root, component_name));
+            files.extend(component_rotated_log_paths(
+                &root.join(".dev-logs"),
+                component_name,
+            ));
+            files.extend(component_rotated_log_paths(
+                &root.join("logs"),
+                component_name,
+            ));
+            files.extend(component_rotated_log_paths(
+                &root.join("log"),
+                component_name,
+            ));
+        }
+        files.extend(log_files_in_dir(&root.join(".dev-logs"), 5));
+        files.extend(log_files_in_dir(&root.join("logs"), 5));
+        files.extend(log_files_in_dir(&root.join("log"), 5));
+    }
+
+    sort_and_deduplicate_log_files(files)
+}
+
+fn log_search_roots(cwd: &Path) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let mut current = Some(cwd);
+
+    while let Some(path) = current {
+        roots.push(path.to_path_buf());
+        if roots.len() >= 4 || is_home_like_root(path) {
+            break;
+        }
+        current = path.parent();
+    }
+
+    roots
+}
+
+fn is_home_like_root(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    name == "Users" || name == "home"
+}
+
+fn fixed_framework_log_paths(root: &Path) -> Vec<LogFile> {
     [
         ".next/server.log",
         "logs/development.log",
@@ -378,16 +430,69 @@ fn common_framework_logs(cwd: &Path) -> Vec<LogFile> {
         "yarn-error.log",
     ]
     .into_iter()
-    .filter_map(|relative| {
-        let path = cwd.join(relative);
-        path.exists().then_some(LogFile {
-            path,
-            fd: LogFd::File,
-            kind: LogFileKind::Framework,
-            priority: 3,
-        })
+    .filter_map(|relative| framework_log_file(root.join(relative), 4))
+    .collect()
+}
+
+fn component_log_paths(root: &Path, component_name: &str) -> Vec<LogFile> {
+    [
+        root.join(".dev-logs").join(format!("{component_name}.log")),
+        root.join("logs").join(format!("{component_name}.log")),
+        root.join("log").join(format!("{component_name}.log")),
+    ]
+    .into_iter()
+    .filter_map(|path| {
+        let priority = if is_non_empty_file(&path) { 3 } else { 6 };
+        framework_log_file(path, priority)
     })
     .collect()
+}
+
+fn component_rotated_log_paths(dir: &Path, component_name: &str) -> Vec<LogFile> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+
+    let prefix = format!("{component_name}-");
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let file_name = path.file_name()?.to_str()?;
+            (file_name.starts_with(&prefix) && is_non_empty_file(&path))
+                .then_some(path)
+                .and_then(|path| framework_log_file(path, 4))
+        })
+        .collect()
+}
+
+fn log_files_in_dir(dir: &Path, priority: u8) -> Vec<LogFile> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| framework_log_file(entry.path(), priority))
+        .collect()
+}
+
+fn framework_log_file(path: PathBuf, priority: u8) -> Option<LogFile> {
+    if !path.is_file() || !is_log_like_path(&path.to_string_lossy()) {
+        return None;
+    }
+
+    Some(LogFile {
+        path,
+        fd: LogFd::File,
+        kind: LogFileKind::Framework,
+        priority,
+    })
+}
+
+fn is_non_empty_file(path: &Path) -> bool {
+    path.metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
 }
 
 fn sort_and_deduplicate_log_files(mut files: Vec<LogFile>) -> Vec<LogFile> {
@@ -638,22 +743,24 @@ fn system_log_output_has_records(output: &str) -> bool {
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_BOLD: &str = "\x1b[1m";
 const LOG_TIMESTAMP: &str = "\x1b[38;5;45m";
-const LOG_INFO: &str = "\x1b[38;5;39m";
+const LOG_GREEN: &str = "\x1b[38;2;21;128;61m";
+const LOG_FRAMEWORK_RED: &str = "\x1b[38;2;239;68;68m";
+const LOG_INFO: &str = LOG_GREEN;
 const LOG_WARN: &str = "\x1b[38;5;214m";
-const LOG_ERROR: &str = "\x1b[38;5;196m";
+const LOG_ERROR: &str = LOG_FRAMEWORK_RED;
 const LOG_DEBUG: &str = "\x1b[38;5;141m";
 const LOG_TRACE: &str = "\x1b[38;5;244m";
 const LOG_THREAD: &str = "\x1b[38;5;51m";
-const LOG_SOURCE: &str = "\x1b[38;5;82m";
+const LOG_SOURCE: &str = LOG_GREEN;
 const LOG_KEY: &str = "\x1b[38;5;75m";
-const LOG_VALUE: &str = "\x1b[38;5;120m";
+const LOG_VALUE: &str = LOG_GREEN;
 const LOG_TRACE_ID: &str = "\x1b[38;5;177m";
 const LOG_SEPARATOR: &str = "\x1b[38;5;245m";
 const LOG_PID: &str = "\x1b[38;5;208m";
 const LOG_HTTP_METHOD: &str = "\x1b[38;5;81m";
-const LOG_HTTP_STATUS_OK: &str = "\x1b[38;5;82m";
+const LOG_HTTP_STATUS_OK: &str = LOG_GREEN;
 const LOG_HTTP_STATUS_WARN: &str = "\x1b[38;5;214m";
-const LOG_HTTP_STATUS_ERROR: &str = "\x1b[38;5;196m";
+const LOG_HTTP_STATUS_ERROR: &str = LOG_FRAMEWORK_RED;
 
 fn colorize_log_output(raw: &str) -> String {
     if raw.is_empty() {
@@ -978,11 +1085,21 @@ fn is_log_key(key: &str) -> bool {
 }
 
 fn is_logger_token(token: &str) -> bool {
-    token.contains('.')
-        && !token.contains('=')
-        && token.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'$' | b'-' | b'/' | b':')
-        })
+    if token.contains('=') || !token.contains('.') || token.ends_with('.') {
+        return false;
+    }
+
+    if !token.bytes().all(|byte| {
+        byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'$' | b'-' | b'/' | b':')
+    }) {
+        return false;
+    }
+
+    let segments = token
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+        .count();
+    segments >= 2
 }
 
 fn ansi_color(value: &str, color: &str) -> String {
@@ -1217,6 +1334,38 @@ tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
     }
 
     #[test]
+    fn log_palette_uses_muted_green_for_info_source_and_success_values() {
+        let line = "2026-05-23T18:45:04.859+08:00  INFO [traceId:-] 15224 --- [main] c.n.a.Service status=200 result=SUCCESS";
+
+        let colored = colorize_log_line(line);
+
+        assert!(colored.contains("\x1b[38;2;21;128;61m"));
+        assert!(!colored.contains("\x1b[38;5;82m"));
+        assert!(!colored.contains("\x1b[38;5;120m"));
+    }
+
+    #[test]
+    fn log_palette_uses_framework_red_for_error_levels_and_5xx_statuses() {
+        let line = "2026-05-23T18:45:04.859+08:00 ERROR [traceId:-] 15224 --- [main] c.n.a.Service status=500 result=FAILED";
+
+        let colored = colorize_log_line(line);
+
+        assert!(colored.contains("\x1b[38;2;239;68;68m"));
+        assert!(!colored.contains("\x1b[38;5;196m"));
+    }
+
+    #[test]
+    fn logger_detection_does_not_color_plain_words_with_trailing_periods() {
+        let line = "2026-05-23T18:45:04.859+08:00  INFO [traceId:] 15224 --- [main] c.n.a.Service : Graceful shutdown complete.";
+
+        let colored = colorize_log_line(line);
+
+        assert!(colored.contains("\x1b[38;2;21;128;61mc.n.a.Service\x1b[0m"));
+        assert!(colored.contains("complete."));
+        assert!(!colored.contains("\x1b[38;2;21;128;61mcomplete.\x1b[0m"));
+    }
+
+    #[test]
     fn colorizes_node_style_lowercase_log_lines() {
         let line = "2026-05-23T18:45:04.859Z info vite server listening port=5173 status=ready";
 
@@ -1360,6 +1509,75 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         assert_eq!(selected.path, PathBuf::from("/tmp/app.stderr"));
     }
 
+    #[test]
+    fn common_framework_logs_discovers_matching_dev_log_in_project_parent() {
+        let root = temp_test_dir("matching-dev-log");
+        let backend = root.join("backend");
+        let log_dir = root.join(".dev-logs");
+        std::fs::create_dir_all(&backend).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::write(log_dir.join("frontend.log"), "frontend").unwrap();
+        std::fs::write(log_dir.join("backend-20260520.log"), "old").unwrap();
+        std::fs::write(log_dir.join("backend.log"), "current").unwrap();
+
+        let logs = common_framework_logs(&backend);
+
+        assert_eq!(
+            logs.first().map(|file| file.path.as_path()),
+            Some(log_dir.join("backend.log").as_path())
+        );
+        assert!(logs
+            .iter()
+            .any(|file| file.path == log_dir.join("frontend.log")));
+    }
+
+    #[test]
+    fn common_framework_logs_prefers_non_empty_component_rotation_over_empty_current_log() {
+        let root = temp_test_dir("non-empty-rotation");
+        let backend = root.join("backend");
+        let log_dir = root.join(".dev-logs");
+        std::fs::create_dir_all(&backend).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::write(log_dir.join("backend.log"), "").unwrap();
+        std::fs::write(log_dir.join("backend-20260520.log"), "current output").unwrap();
+        std::fs::write(log_dir.join("frontend.log"), "frontend").unwrap();
+
+        let logs = common_framework_logs(&backend);
+
+        assert_eq!(
+            logs.first().map(|file| file.path.as_path()),
+            Some(log_dir.join("backend-20260520.log").as_path())
+        );
+    }
+
+    #[test]
+    fn common_framework_logs_ignores_non_log_files_in_dev_log_dirs() {
+        let root = temp_test_dir("ignore-non-log");
+        let backend = root.join("backend");
+        let log_dir = root.join(".dev-logs");
+        std::fs::create_dir_all(&backend).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::write(log_dir.join("backend.txt"), "not a log").unwrap();
+
+        let logs = common_framework_logs(&backend);
+
+        assert!(logs.is_empty());
+    }
+
+    #[test]
+    fn common_framework_logs_keeps_existing_framework_paths() {
+        let root = temp_test_dir("existing-framework-paths");
+        let log_dir = root.join("logs");
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::write(log_dir.join("development.log"), "rails").unwrap();
+
+        let logs = common_framework_logs(&root);
+
+        assert!(logs
+            .iter()
+            .any(|file| file.path == log_dir.join("development.log")));
+    }
+
     fn sample_log_files() -> Vec<LogFile> {
         vec![
             LogFile {
@@ -1385,5 +1603,13 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
 
     fn strings<const N: usize>(values: [&str; N]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    fn temp_test_dir(name: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("kiri-logs-test-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
     }
 }

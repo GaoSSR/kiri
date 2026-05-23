@@ -6,7 +6,7 @@ const RESET: &str = "\x1b[0m";
 const BLUE: &str = "\x1b[38;2;59;130;246m";
 const INDIGO: &str = "\x1b[38;2;99;102;241m";
 const LIME: &str = "\x1b[38;2;101;163;13m";
-const GREEN: &str = "\x1b[38;2;76;175;80m";
+const GREEN: &str = "\x1b[38;2;21;128;61m";
 const RED: &str = "\x1b[38;2;239;68;68m";
 const ROSE: &str = "\x1b[38;2;225;29;72m";
 const PURPLE: &str = "\x1b[38;2;139;92;246m";
@@ -125,17 +125,11 @@ fn render_port_table_with_width(
 ) -> String {
     let mut output = String::new();
 
-    output.push_str(BOLD);
-    output.push_str("Kiri");
-    output.push_str(RESET);
-    output.push_str(" - listening ports\n\n");
+    push_kiri_pet_status(&mut output, &port_pet_status(ports, filtered));
 
     if ports.is_empty() {
         if filtered {
-            output.push_str("No developer listening ports found.\n");
             output.push_str("Run `ports --all` to show every listener.\n");
-        } else {
-            output.push_str("No listening ports found.\n");
         }
         return output;
     }
@@ -173,6 +167,31 @@ fn render_port_table_with_width(
     output.push('\n');
 
     output
+}
+
+fn port_pet_status(ports: &[PortInfo], filtered: bool) -> String {
+    if ports.is_empty() {
+        return if filtered {
+            "is resting. No developer ports found.".to_string()
+        } else {
+            "is resting. No listening ports found.".to_string()
+        };
+    }
+
+    format!(
+        "is watching {} port{}",
+        colorize(&ports.len().to_string(), GREEN),
+        if ports.len() == 1 { "" } else { "s" }
+    )
+}
+
+fn push_kiri_pet_status(output: &mut String, status: &str) {
+    output.push_str(&colorize("☁", BLUE));
+    output.push(' ');
+    output.push_str(&colorize_bold("Kiri", BLUE));
+    output.push(' ');
+    output.push_str(status);
+    output.push_str("\n\n");
 }
 
 pub fn render_port_detail(port: &PortInfo) -> String {
@@ -1196,6 +1215,35 @@ mod tests {
     }
 
     #[test]
+    fn port_table_title_uses_kiri_pet_status_for_active_ports() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
+
+        assert!(output.starts_with("☁ Kiri is watching 1 port\n\n"));
+        assert!(!output.contains("Kiri - listening ports"));
+    }
+
+    #[test]
+    fn port_table_empty_filtered_state_uses_resting_pet_status() {
+        let output = strip_ansi_codes(&render_port_table_with_width(&[], true, 100));
+
+        assert!(output.starts_with("☁ Kiri is resting. No developer ports found.\n\n"));
+        assert!(output.contains("Run `ports --all` to show every listener."));
+        assert!(!output.contains("Kiri - listening ports"));
+    }
+
+    #[test]
+    fn pet_status_does_not_replace_port_detail_title() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_detail_with_width(&port, 100));
+
+        assert!(output.starts_with("Kiri - Port 5173\n\n"));
+        assert!(!output.contains("☁ Kiri is watching"));
+    }
+
+    #[test]
     fn modern_terminal_rendering_centers_wide_port_and_framework_values() {
         let mut port = sample_port("frontend", "node vite");
         port.port = 55433;
@@ -1336,7 +1384,7 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[38;2;76;175;80m1\x1b[0m port active"));
+        assert!(output.contains("\x1b[38;2;21;128;61m1\x1b[0m port active"));
         assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mports\x1b[0m"));
         assert!(output.contains("\x1b[1m\x1b[38;2;245;158;11m--all\x1b[0m"));
     }
@@ -1355,7 +1403,7 @@ mod tests {
         assert!(output.contains("\x1b[38;2;239;68;68mVite"));
         assert!(output.contains("\x1b[38;2;139;92;246mTOKEN=$TOKEN"));
         assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mnode"));
-        assert!(output.contains("\x1b[38;2;76;175;80m/Users"));
+        assert!(output.contains("\x1b[38;2;21;128;61m/Users"));
         assert!(output.contains("\x1b[38;2;225;29;72m--host"));
         for line in output.lines() {
             assert!(

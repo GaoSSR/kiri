@@ -6,6 +6,25 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.12 - 2026-05-23
+
+### Added
+
+- Added the Kiri terminal companion status to the default `ports` view.
+- Added a reproducible Codex custom pet package for Kiri under
+  `assets/codex-pet/kiri`.
+
+### Fixed
+
+- Fixed `ports logs` fallback discovery for project `.dev-logs`, `logs`, and
+  `log` directories when the running process writes to project-managed log
+  files instead of direct stdout/stderr files.
+- Changed log coloring to use a calmer green for INFO, sources, successful
+  status values, and logfmt success values, while keeping error states aligned
+  with the table `Framework` red.
+- Kept non-logger prose such as `complete.` from being colored as a logger
+  name in Spring-style log lines.
+
 ## 0.1.11 - 2026-05-23
 
 ### Added

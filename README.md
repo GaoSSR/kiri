@@ -38,6 +38,23 @@
 
 Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
+## Meet Kiri
+
+The default `ports` view now opens with a lightweight terminal companion instead of a static title:
+
+```text
+☁ Kiri is watching 5 ports
+```
+
+A Codex custom pet package is included at `assets/codex-pet/kiri`. To install it into Codex locally:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/pets"
+cp -R assets/codex-pet/kiri "${CODEX_HOME:-$HOME/.codex}/pets/kiri"
+```
+
+Then choose `Kiri` from Codex `Settings > Appearance > Pets`.
+
 ## Core Usage
 
 - **View local development services and their ports:** `ports`
