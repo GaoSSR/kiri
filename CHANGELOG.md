@@ -6,6 +6,14 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.14 - 2026-05-23
+
+### Fixed
+
+- Split project framework log discovery from broad process-redirect log
+  detection, so files such as `backend.txt` inside temp-backed test directories
+  are not treated as framework logs.
+
 ## 0.1.13 - 2026-05-23
 
 ### Fixed

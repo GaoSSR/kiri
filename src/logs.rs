@@ -488,7 +488,7 @@ fn log_files_in_dir(dir: &Path, priority: u8) -> Vec<LogFile> {
 }
 
 fn framework_log_file(path: PathBuf, priority: u8) -> Option<LogFile> {
-    if !path.is_file() || !is_log_like_path(&path.to_string_lossy()) {
+    if !path.is_file() || !is_framework_log_like_path(&path) {
         return None;
     }
 
@@ -498,6 +498,18 @@ fn framework_log_file(path: PathBuf, priority: u8) -> Option<LogFile> {
         kind: LogFileKind::Framework,
         priority,
     })
+}
+
+fn is_framework_log_like_path(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) else {
+        return false;
+    };
+    let lower = file_name.to_ascii_lowercase();
+
+    lower.ends_with(".log")
+        || lower == "nohup.out"
+        || lower.contains("stdout")
+        || lower.contains("stderr")
 }
 
 fn is_non_empty_file(path: &Path) -> bool {
