@@ -42,7 +42,7 @@ Kiri is a high-performance CLI for managing local development ports, powered by 
 
 - **View local development services and their ports:** `ports`
 - **Quickly kill the process / PID behind a port:** `ports kill <port>`
-- **View logs for the process listening on a port:** `ports logs <port|pid>`
+- **Follow logs for the process listening on a port:** `ports logs <port|pid> -f`
 - **View all ports:** `ports --all`
 
 ## Install
@@ -76,10 +76,11 @@ ports --all                 # show all listening ports
 ports <port>                # show details for one port
 ports ps                    # show developer-related running processes
 ports ps --all              # show all processes
-ports logs <port|pid>       # view logs for the process listening on a port
-ports logs 3000 --lines 10  # show last 10 lines
-ports logs 3000 --err       # stderr only
-ports logs 3000 --follow    # follow logs
+ports logs <port|pid>          # show recent logs and exit
+ports logs <port|pid> -f       # follow logs for the process listening on a port
+ports logs 3000 --lines 10     # show last 10 lines and exit
+ports logs 3000 -f --lines 10  # show last 10 lines and keep following
+ports logs 3000 --err          # stderr only
 ports clean                 # ask before cleaning orphaned/zombie dev processes
 ports watch                 # stream port start/stop events
 ports kill 3000             # quickly kill the process / PID behind a port
@@ -97,6 +98,8 @@ ports kill --force 3000     # use SIGKILL instead of SIGTERM
 | Linux arm64 / Windows arm64 | Planned |
 
 On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
+
+`ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs.
 
 ## Development
 

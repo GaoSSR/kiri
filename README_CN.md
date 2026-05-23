@@ -42,7 +42,7 @@ Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CL
 
 - **快速查看本地开发端口：** `ports`
 - **快速 Kill 掉端口所对应的进程 / PID：** `ports kill <port>`
-- **监听端口所对应进程的日志：** `ports logs <port|pid>`
+- **持续监听端口所对应进程的日志：** `ports logs <port|pid> -f`
 - **查看所有端口：** `ports --all`
 
 ## 安装
@@ -76,10 +76,11 @@ ports --all                 # 展示所有监听端口
 ports <port>                # 查看单个端口详情
 ports ps                    # 展示开发相关运行进程
 ports ps --all              # 展示所有进程
-ports logs <port|pid>       # 监听端口所对应进程的日志
-ports logs 3000 --lines 10  # 只看最后 10 行
-ports logs 3000 --err       # 只看 stderr
-ports logs 3000 --follow    # 持续跟随日志
+ports logs <port|pid>          # 查看最近日志后退出
+ports logs <port|pid> -f       # 持续监听端口所对应进程的日志
+ports logs 3000 --lines 10     # 只看最后 10 行后退出
+ports logs 3000 -f --lines 10  # 先看最后 10 行并继续监听
+ports logs 3000 --err          # 只看 stderr
 ports clean                 # 清理孤儿或僵尸开发进程前先询问
 ports watch                 # 监听端口启动和停止事件
 ports kill 3000             # 快速 Kill 掉端口所对应的进程 / PID
@@ -97,6 +98,8 @@ ports kill --force 3000     # 使用 SIGKILL 而不是 SIGTERM
 | Linux arm64 / Windows arm64 | 已规划 |
 
 在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
+
+`ports logs` 会为常见开发日志格式添加 ANSI 颜色，包括 Java、Python、Go、Node.js、logfmt 和 JSON 日志。
 
 ## 开发
 

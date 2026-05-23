@@ -6,6 +6,18 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.11 - 2026-05-23
+
+### Added
+
+- Added semantic ANSI coloring for `ports logs` output across common Java,
+  Python, Go, Node.js, logfmt, and JSON log formats.
+
+### Changed
+
+- Updated README log examples so continuous log listening uses
+  `ports logs <port|pid> -f` explicitly.
+
 ## 0.1.10 - 2026-05-23
 
 ### Fixed

@@ -1,7 +1,7 @@
 use crate::kill::{resolve_target, SystemResolver};
 use crate::platform;
 use std::collections::HashSet;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, BufRead, BufReader, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -488,23 +488,17 @@ fn run_command(
     mut output: String,
 ) -> LogCommandOutcome {
     if follow {
-        print!("{output}");
-        let status = Command::new(command)
-            .args(args)
-            .stdin(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status();
-        return LogCommandOutcome {
-            exit_code: status.ok().and_then(|status| status.code()).unwrap_or(1),
-            output: String::new(),
-        };
+        return run_streaming_command(command, args, output);
     }
 
     match Command::new(command).args(args).output() {
         Ok(result) => {
-            output.push_str(&String::from_utf8_lossy(&result.stdout));
-            output.push_str(&String::from_utf8_lossy(&result.stderr));
+            output.push_str(&colorize_log_output(&String::from_utf8_lossy(
+                &result.stdout,
+            )));
+            output.push_str(&colorize_log_output(&String::from_utf8_lossy(
+                &result.stderr,
+            )));
             LogCommandOutcome {
                 exit_code: if result.status.success() { 0 } else { 1 },
                 output,
@@ -517,6 +511,73 @@ fn run_command(
                 output,
             }
         }
+    }
+}
+
+fn run_streaming_command(
+    command: String,
+    args: &[String],
+    mut output: String,
+) -> LogCommandOutcome {
+    print!("{output}");
+    let _ = io::stdout().flush();
+
+    let mut child = match Command::new(command)
+        .args(args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) => {
+            output.push_str(&format!("Failed to run log command: {error}\n"));
+            eprintln!("Failed to run log command: {error}");
+            return LogCommandOutcome {
+                exit_code: 1,
+                output: String::new(),
+            };
+        }
+    };
+
+    let Some(stdout) = child.stdout.take() else {
+        eprintln!("Failed to read log command output");
+        return LogCommandOutcome {
+            exit_code: 1,
+            output: String::new(),
+        };
+    };
+
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                print!("{}", colorize_log_output(&line));
+                let _ = io::stdout().flush();
+            }
+            Err(error) => {
+                eprintln!("Failed to read log output: {error}");
+                let _ = child.kill();
+                let _ = child.wait();
+                return LogCommandOutcome {
+                    exit_code: 1,
+                    output: String::new(),
+                };
+            }
+        }
+    }
+
+    let exit_code = child
+        .wait()
+        .ok()
+        .and_then(|status| status.code())
+        .unwrap_or(1);
+    LogCommandOutcome {
+        exit_code,
+        output: String::new(),
     }
 }
 
@@ -535,8 +596,8 @@ fn run_system_log_command(
         Ok(result) => {
             let stdout = String::from_utf8_lossy(&result.stdout);
             let stderr = String::from_utf8_lossy(&result.stderr);
-            output.push_str(&stdout);
-            output.push_str(&stderr);
+            output.push_str(&colorize_log_output(&stdout));
+            output.push_str(&colorize_log_output(&stderr));
 
             if result.status.success() && system_log_output_has_records(&stdout) {
                 return LogCommandOutcome {
@@ -572,6 +633,364 @@ fn system_log_output_has_records(output: &str) -> bool {
         let trimmed = line.trim();
         !trimmed.is_empty() && !trimmed.starts_with("Timestamp ")
     })
+}
+
+const ANSI_RESET: &str = "\x1b[0m";
+const ANSI_BOLD: &str = "\x1b[1m";
+const LOG_TIMESTAMP: &str = "\x1b[38;5;45m";
+const LOG_INFO: &str = "\x1b[38;5;39m";
+const LOG_WARN: &str = "\x1b[38;5;214m";
+const LOG_ERROR: &str = "\x1b[38;5;196m";
+const LOG_DEBUG: &str = "\x1b[38;5;141m";
+const LOG_TRACE: &str = "\x1b[38;5;244m";
+const LOG_THREAD: &str = "\x1b[38;5;51m";
+const LOG_SOURCE: &str = "\x1b[38;5;82m";
+const LOG_KEY: &str = "\x1b[38;5;75m";
+const LOG_VALUE: &str = "\x1b[38;5;120m";
+const LOG_TRACE_ID: &str = "\x1b[38;5;177m";
+const LOG_SEPARATOR: &str = "\x1b[38;5;245m";
+const LOG_PID: &str = "\x1b[38;5;208m";
+const LOG_HTTP_METHOD: &str = "\x1b[38;5;81m";
+const LOG_HTTP_STATUS_OK: &str = "\x1b[38;5;82m";
+const LOG_HTTP_STATUS_WARN: &str = "\x1b[38;5;214m";
+const LOG_HTTP_STATUS_ERROR: &str = "\x1b[38;5;196m";
+
+fn colorize_log_output(raw: &str) -> String {
+    if raw.is_empty() {
+        return String::new();
+    }
+
+    let mut output = raw
+        .lines()
+        .map(colorize_log_line)
+        .collect::<Vec<_>>()
+        .join("\n");
+    if raw.ends_with('\n') {
+        output.push('\n');
+    }
+    output
+}
+
+fn colorize_log_line(line: &str) -> String {
+    if !is_structured_log_line(line) {
+        return line.to_string();
+    }
+
+    if is_json_log_line(line.trim()) {
+        return colorize_json_log_line(line);
+    }
+
+    let mut output = String::with_capacity(line.len() + 64);
+    let mut current = String::new();
+    let mut current_is_whitespace = None;
+
+    for ch in line.chars() {
+        let is_whitespace = ch.is_whitespace();
+        match current_is_whitespace {
+            Some(kind) if kind == is_whitespace => current.push(ch),
+            Some(true) => {
+                output.push_str(&current);
+                current.clear();
+                current.push(ch);
+                current_is_whitespace = Some(is_whitespace);
+            }
+            Some(false) => {
+                output.push_str(&colorize_log_token(&current));
+                current.clear();
+                current.push(ch);
+                current_is_whitespace = Some(is_whitespace);
+            }
+            None => {
+                current.push(ch);
+                current_is_whitespace = Some(is_whitespace);
+            }
+        }
+    }
+
+    match current_is_whitespace {
+        Some(true) => output.push_str(&current),
+        Some(false) => output.push_str(&colorize_log_token(&current)),
+        None => {}
+    }
+
+    output
+}
+
+fn is_structured_log_line(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if is_json_log_line(trimmed) {
+        return true;
+    }
+
+    let mut has_timestamp = false;
+    let mut level_index = None;
+    let mut key_value_count = 0usize;
+    let mut has_http_token = false;
+
+    for (index, token) in line.split_whitespace().enumerate() {
+        has_timestamp |= is_timestamp_token(token);
+        if level_index.is_none() && log_level_color(token).is_some() {
+            level_index = Some(index);
+        }
+        has_http_token |= is_http_method(token) || http_status_color(token).is_some();
+
+        if let Some((key, value)) = token.split_once('=') {
+            if !key.is_empty() && !value.is_empty() && is_log_key(key) {
+                key_value_count += 1;
+                if key.eq_ignore_ascii_case("level") || key.eq_ignore_ascii_case("severity") {
+                    level_index = level_index.or(Some(index));
+                }
+                if key.eq_ignore_ascii_case("time") || key.eq_ignore_ascii_case("timestamp") {
+                    has_timestamp = true;
+                }
+            }
+        }
+    }
+
+    let has_level_context = level_index.is_some_and(|index| {
+        index == 0 || (index <= 3 && (has_timestamp || has_http_token || key_value_count > 0))
+    });
+    has_level_context || key_value_count >= 2 || (has_timestamp && has_http_token)
+}
+
+fn colorize_log_token(token: &str) -> String {
+    if is_timestamp_token(token) {
+        return ansi_color(token, LOG_TIMESTAMP);
+    }
+
+    if let Some(color) = log_level_color(token) {
+        return ansi_bold_color(token, color);
+    }
+
+    if token.starts_with("[traceId:") || token.starts_with("traceId:") {
+        return ansi_color(token, LOG_TRACE_ID);
+    }
+
+    if token.starts_with('[') && token.ends_with(']') {
+        return ansi_color(token, LOG_THREAD);
+    }
+
+    if token == "---" {
+        return ansi_color(token, LOG_SEPARATOR);
+    }
+
+    if token.bytes().all(|byte| byte.is_ascii_digit()) {
+        if let Some(color) = http_status_color(token) {
+            return ansi_bold_color(token, color);
+        }
+        return ansi_color(token, LOG_PID);
+    }
+
+    if is_http_method(token) {
+        return ansi_bold_color(token, LOG_HTTP_METHOD);
+    }
+
+    if let Some((key, value)) = token.split_once('=') {
+        if !key.is_empty() && is_log_key(key) {
+            return format!("{}={}", ansi_color(key, LOG_KEY), colorize_log_value(value));
+        }
+    }
+
+    if is_logger_token(token) {
+        return ansi_color(token, LOG_SOURCE);
+    }
+
+    colorize_log_value(token)
+}
+
+fn colorize_log_value(value: &str) -> String {
+    let unquoted = value.trim_matches(|ch| ch == '"' || ch == '\'');
+    if let Some(color) = log_level_color(unquoted) {
+        return ansi_bold_color(value, color);
+    }
+    if let Some(color) = http_status_color(unquoted) {
+        return ansi_bold_color(value, color);
+    }
+
+    match unquoted.to_ascii_uppercase().as_str() {
+        "SUCCESS" | "OK" | "TRUE" | "READY" => ansi_bold_color(value, LOG_VALUE),
+        "FAILED" | "FAILURE" | "ERROR" | "FALSE" => ansi_bold_color(value, LOG_ERROR),
+        _ => value.to_string(),
+    }
+}
+
+fn is_timestamp_token(token: &str) -> bool {
+    let bytes = token.as_bytes();
+    is_iso_timestamp_token(bytes) || is_date_token(bytes) || is_time_token(bytes)
+}
+
+fn is_iso_timestamp_token(bytes: &[u8]) -> bool {
+    bytes.len() >= 19
+        && bytes.get(4) == Some(&b'-')
+        && bytes.get(7) == Some(&b'-')
+        && matches!(bytes.get(10), Some(b'T' | b' '))
+        && bytes.get(13) == Some(&b':')
+        && bytes.get(16) == Some(&b':')
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && bytes[5..7].iter().all(u8::is_ascii_digit)
+        && bytes[8..10].iter().all(u8::is_ascii_digit)
+}
+
+fn is_date_token(bytes: &[u8]) -> bool {
+    bytes.len() == 10
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+        && matches!(bytes[4], b'-' | b'/')
+        && bytes[5..7].iter().all(u8::is_ascii_digit)
+        && matches!(bytes[7], b'-' | b'/')
+        && bytes[8..10].iter().all(u8::is_ascii_digit)
+}
+
+fn is_time_token(bytes: &[u8]) -> bool {
+    bytes.len() >= 8
+        && bytes[0..2].iter().all(u8::is_ascii_digit)
+        && bytes[2] == b':'
+        && bytes[3..5].iter().all(u8::is_ascii_digit)
+        && bytes[5] == b':'
+        && bytes[6..8].iter().all(u8::is_ascii_digit)
+}
+
+fn log_level_color(token: &str) -> Option<&'static str> {
+    match token
+        .trim_matches(|ch: char| !ch.is_ascii_alphabetic())
+        .to_ascii_uppercase()
+        .as_str()
+    {
+        "ERROR" | "FATAL" => Some(LOG_ERROR),
+        "WARN" | "WARNING" => Some(LOG_WARN),
+        "INFO" => Some(LOG_INFO),
+        "DEBUG" => Some(LOG_DEBUG),
+        "TRACE" => Some(LOG_TRACE),
+        _ => None,
+    }
+}
+
+fn is_http_method(token: &str) -> bool {
+    matches!(
+        token.trim_matches('"'),
+        "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"
+    )
+}
+
+fn http_status_color(token: &str) -> Option<&'static str> {
+    if token.len() != 3 || !token.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    match token.parse::<u16>().ok()? {
+        100..=399 => Some(LOG_HTTP_STATUS_OK),
+        400..=499 => Some(LOG_HTTP_STATUS_WARN),
+        500..=599 => Some(LOG_HTTP_STATUS_ERROR),
+        _ => None,
+    }
+}
+
+fn is_json_log_line(line: &str) -> bool {
+    line.starts_with('{')
+        && line.ends_with('}')
+        && serde_json::from_str::<serde_json::Value>(line).is_ok()
+}
+
+fn colorize_json_log_line(line: &str) -> String {
+    let mut output = String::with_capacity(line.len() + 64);
+    let mut index = 0usize;
+
+    while index < line.len() {
+        let rest = &line[index..];
+        if rest.starts_with('"') {
+            let Some(end) = json_string_end(line, index) else {
+                output.push_str(rest);
+                break;
+            };
+            let segment = &line[index..=end];
+            let after = skip_ascii_spaces(line, end + 1);
+
+            if line.as_bytes().get(after) == Some(&b':') {
+                output.push_str(&ansi_color(segment, LOG_KEY));
+            } else {
+                output.push_str(&colorize_log_value(segment));
+            }
+            index = end + 1;
+            continue;
+        }
+
+        if let Some((token, end)) = json_scalar_token(line, index) {
+            output.push_str(&colorize_log_value(token));
+            index = end;
+            continue;
+        }
+
+        output.push(rest.chars().next().unwrap());
+        index += rest.chars().next().unwrap().len_utf8();
+    }
+
+    output
+}
+
+fn json_string_end(line: &str, start: usize) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let mut escaped = false;
+    for (offset, byte) in bytes[start + 1..].iter().enumerate() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if *byte == b'\\' {
+            escaped = true;
+            continue;
+        }
+        if *byte == b'"' {
+            return Some(start + 1 + offset);
+        }
+    }
+    None
+}
+
+fn skip_ascii_spaces(line: &str, mut index: usize) -> usize {
+    while matches!(line.as_bytes().get(index), Some(b' ' | b'\t')) {
+        index += 1;
+    }
+    index
+}
+
+fn json_scalar_token(line: &str, start: usize) -> Option<(&str, usize)> {
+    let byte = *line.as_bytes().get(start)?;
+    if !(byte.is_ascii_digit() || byte == b'-' || matches!(byte, b't' | b'f' | b'n')) {
+        return None;
+    }
+
+    let mut end = start;
+    while let Some(byte) = line.as_bytes().get(end) {
+        if matches!(byte, b',' | b'}' | b']' | b' ' | b'\t') {
+            break;
+        }
+        end += 1;
+    }
+
+    (end > start).then_some((&line[start..end], end))
+}
+
+fn is_log_key(key: &str) -> bool {
+    key.bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+}
+
+fn is_logger_token(token: &str) -> bool {
+    token.contains('.')
+        && !token.contains('=')
+        && token.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'$' | b'-' | b'/' | b':')
+        })
+}
+
+fn ansi_color(value: &str, color: &str) -> String {
+    format!("{color}{value}{ANSI_RESET}")
+}
+
+fn ansi_bold_color(value: &str, color: &str) -> String {
+    format!("{ANSI_BOLD}{color}{value}{ANSI_RESET}")
 }
 
 fn log_file_label(file: &LogFile) -> &'static str {
@@ -780,6 +1199,112 @@ tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
         assert!(system_log_output_has_records(
             "Timestamp               Ty Process[PID:TID]\n2026-05-23 event\n"
         ));
+    }
+
+    #[test]
+    fn colorizes_timestamped_key_value_log_lines() {
+        let line = "2026-05-23T18:45:04.859+08:00  INFO [traceId:dc1f5ec6cda04ca5b904b56c1e640c12] 15224 --- [nio-8080-exec-1] c.n.a.c.api.ConversationController method=GET status=200 result=SUCCESS";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("2026-05-23T18:45:04.859+08:00"));
+        assert!(colored.contains("INFO"));
+        assert!(colored.contains("traceId:dc1f5ec6cda04ca5b904b56c1e640c12"));
+        assert!(colored.contains("method"));
+        assert!(colored.contains("SUCCESS"));
+    }
+
+    #[test]
+    fn colorizes_node_style_lowercase_log_lines() {
+        let line = "2026-05-23T18:45:04.859Z info vite server listening port=5173 status=ready";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("info"));
+        assert!(colored.contains("port"));
+        assert!(colored.contains("ready"));
+    }
+
+    #[test]
+    fn colorizes_uvicorn_style_log_lines_without_timestamp() {
+        let line = "INFO:     127.0.0.1:53415 - \"GET /docs HTTP/1.1\" 200 OK";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("INFO:"));
+        assert!(colored.contains("GET"));
+        assert!(colored.contains("200"));
+    }
+
+    #[test]
+    fn colorizes_go_log_lines() {
+        let line = "2026/05/23 18:45:04 WARN server request method=POST path=/api/users status=201 duration=12ms";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("WARN"));
+        assert!(colored.contains("method"));
+        assert!(colored.contains("201"));
+    }
+
+    #[test]
+    fn colorizes_logfmt_lines() {
+        let line =
+            "time=2026-05-23T18:45:04.859Z level=warn msg=\"slow request\" method=GET status=504";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("level"));
+        assert!(colored.contains("warn"));
+        assert!(colored.contains("status"));
+    }
+
+    #[test]
+    fn colorizes_json_log_lines() {
+        let line = "{\"time\":\"2026-05-23T18:45:04.859Z\",\"level\":\"error\",\"msg\":\"failed\",\"status\":500}";
+
+        let colored = colorize_log_line(line);
+
+        assert_ne!(colored, line);
+        assert!(colored.contains("\x1b["));
+        assert!(colored.contains("\"level\""));
+        assert!(colored.contains("\"error\""));
+        assert!(colored.contains("\"status\""));
+    }
+
+    #[test]
+    fn leaves_plain_log_text_uncolored() {
+        let line = "server started without structured fields or information markers";
+
+        assert_eq!(colorize_log_line(line), line);
+    }
+
+    #[test]
+    fn leaves_plain_sentence_with_info_word_uncolored() {
+        let line = "server info message without timestamp or structured fields";
+
+        assert_eq!(colorize_log_line(line), line);
+    }
+
+    #[test]
+    fn colorizes_only_structured_lines_in_multiline_log_output() {
+        let raw = "server started\n2026-05-23T18:45:04.859+08:00  WARN [traceId:-] 15224 --- [main] app.Service status=500\n";
+
+        let colored = colorize_log_output(raw);
+
+        assert!(colored.starts_with("server started\n"));
+        assert!(colored.contains("\x1b["));
+        assert!(colored.ends_with('\n'));
     }
 
     #[test]
