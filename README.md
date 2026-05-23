@@ -40,20 +40,15 @@ Kiri is a high-performance CLI for managing local development ports, powered by 
 
 ## Meet Kiri
 
-The default `ports` view now opens with a lightweight terminal companion instead of a static title:
+The default `ports` terminal view opens with a compact Kiri companion before the port table:
 
 ```text
-☁ Kiri is watching 5 ports
+      .-~~~~-.
+   .-(  ●  ● )-.
+  (  •   ⌣   •  )  Kiri is watching 5 ports, 5 ports active
+   '-.        .-'
+      '------'
 ```
-
-A Codex custom pet package is included at `assets/codex-pet/kiri`. To install it into Codex locally:
-
-```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/pets"
-cp -R assets/codex-pet/kiri "${CODEX_HOME:-$HOME/.codex}/pets/kiri"
-```
-
-Then choose `Kiri` from Codex `Settings > Appearance > Pets`.
 
 ## Core Usage
 

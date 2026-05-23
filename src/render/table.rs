@@ -16,6 +16,7 @@ const BORDER_BLACK: &str = "\x1b[38;2;0;0;0m";
 const DOT_GREEN: &str = "\x1b[38;2;34;197;94m";
 
 const DEFAULT_TERMINAL_WIDTH: usize = 100;
+const MIN_TERMINAL_WIDTH_FOR_KIRI_SPRITE: usize = 48;
 const COLUMN_COUNT: usize = 7;
 const PORT_COL: usize = 0;
 const PROCESS_COL: usize = 1;
@@ -65,7 +66,7 @@ const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
     ColumnSpec::flex(7, 4, 1),
     ColumnSpec::flex(12, 4, 2),
     ColumnSpec::stable(6),
-    ColumnSpec::stable(8),
+    ColumnSpec::stable(9),
 ];
 
 const PROCESS_COLUMN_SPECS: [ColumnSpec; PROCESS_COLUMN_COUNT] = [
@@ -125,11 +126,15 @@ fn render_port_table_with_width(
 ) -> String {
     let mut output = String::new();
 
-    push_kiri_pet_status(&mut output, &port_pet_status(ports, filtered));
+    push_kiri_pet_status(
+        &mut output,
+        &port_pet_status(ports, filtered),
+        terminal_width,
+    );
 
     if ports.is_empty() {
         if filtered {
-            output.push_str("Run `ports --all` to show every listener.\n");
+            output.push_str("Run ports --all to show every listener.\n");
         }
         return output;
     }
@@ -151,21 +156,6 @@ fn render_port_table_with_width(
     }
     push_border(&mut output, &widths, BorderKind::Bottom);
 
-    output.push('\n');
-    output.push_str(&format!(
-        "{} port{} active",
-        colorize(&ports.len().to_string(), GREEN),
-        if ports.len() == 1 { "" } else { "s" }
-    ));
-    if filtered {
-        output.push_str(&format!(
-            " - run `{}` `{}` to show everything",
-            colorize_bold("ports", BLUE),
-            colorize_bold("--all", ORANGE)
-        ));
-    }
-    output.push('\n');
-
     output
 }
 
@@ -178,20 +168,64 @@ fn port_pet_status(ports: &[PortInfo], filtered: bool) -> String {
         };
     }
 
-    format!(
-        "is watching {} port{}",
-        colorize(&ports.len().to_string(), GREEN),
-        if ports.len() == 1 { "" } else { "s" }
-    )
+    let count = colorize(&ports.len().to_string(), RED);
+    let plural = if ports.len() == 1 { "" } else { "s" };
+    format!("is watching {count} port{plural}, {count} port{plural} active")
 }
 
-fn push_kiri_pet_status(output: &mut String, status: &str) {
-    output.push_str(&colorize("☁", BLUE));
-    output.push(' ');
+fn push_kiri_pet_status(output: &mut String, status: &str, terminal_width: usize) {
+    if terminal_width >= MIN_TERMINAL_WIDTH_FOR_KIRI_SPRITE {
+        push_kiri_terminal_sprite(output, Some(status));
+    } else {
+        push_kiri_status_text(output, status);
+    }
+    output.push_str("\n\n");
+}
+
+fn push_kiri_status_text(output: &mut String, status: &str) {
     output.push_str(&colorize_bold("Kiri", BLUE));
     output.push(' ');
     output.push_str(status);
-    output.push_str("\n\n");
+}
+
+fn push_kiri_terminal_sprite(output: &mut String, status: Option<&str>) {
+    output.push_str("      ");
+    output.push_str(&colorize(".-~~~~-.", BLUE));
+    output.push('\n');
+
+    output.push_str("   ");
+    output.push_str(&colorize(".-(", BLUE));
+    output.push_str("  ");
+    output.push_str(&colorize("●", "\x1b[38;2;15;42;64m"));
+    output.push_str("  ");
+    output.push_str(&colorize("●", "\x1b[38;2;15;42;64m"));
+    output.push(' ');
+    output.push_str(&colorize(")-.", BLUE));
+    output.push('\n');
+
+    output.push_str("  ");
+    output.push_str(&colorize("(", BLUE));
+    output.push_str("  ");
+    output.push_str(&colorize("•", "\x1b[38;2;255;174;186m"));
+    output.push_str("   ");
+    output.push_str(&colorize("⌣", "\x1b[38;2;15;42;64m"));
+    output.push_str("   ");
+    output.push_str(&colorize("•", "\x1b[38;2;255;174;186m"));
+    output.push_str("  ");
+    output.push_str(&colorize(")", BLUE));
+    if let Some(status) = status {
+        output.push_str("  ");
+        push_kiri_status_text(output, status);
+    }
+    output.push('\n');
+
+    output.push_str("   ");
+    output.push_str(&colorize("'-.        .-'", BLUE));
+    output.push('\n');
+
+    output.push_str("      ");
+    output.push_str(&colorize("'------'", BLUE));
+    output.push('\n');
 }
 
 pub fn render_port_detail(port: &PortInfo) -> String {
@@ -217,7 +251,7 @@ fn render_process_table_with_width(
     if processes.is_empty() {
         if filtered {
             output.push_str("No developer processes found.\n");
-            output.push_str("Run `ports ps --all` to show every process.\n");
+            output.push_str("Run ports ps --all to show every process.\n");
         } else {
             output.push_str("No processes found.\n");
         }
@@ -249,7 +283,7 @@ fn render_process_table_with_width(
     ));
     if filtered {
         output.push_str(&format!(
-            " - run `{}` `{}` `{}` to show everything",
+            " - run {} {} {} to show everything",
             colorize_bold("ports", BLUE),
             colorize("ps", PURPLE),
             colorize_bold("--all", ORANGE)
@@ -665,7 +699,7 @@ fn style_status(status: &str, padded: &str) -> String {
         _ => INDIGO,
     };
 
-    format!("{color}{padded}{RESET}")
+    colorize(padded, color)
 }
 
 fn style_header(value: &str) -> String {
@@ -1208,10 +1242,11 @@ mod tests {
 
         assert!(output.contains("│  PID  │"));
         assert!(output.contains("│  Framework   │"));
-        assert!(output.contains("│  Status  │"));
+        assert!(output.contains("│  Status   │"));
         assert!(output.contains("│ 1296  │"));
         assert!(output.contains("│  5173   │"));
         assert!(output.contains("│  node   │"));
+        assert!(output.contains("│  healthy  │"));
     }
 
     #[test]
@@ -1220,7 +1255,13 @@ mod tests {
 
         let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
 
-        assert!(output.starts_with("☁ Kiri is watching 1 port\n\n"));
+        assert!(output.contains("⌣"));
+        assert!(output.contains("●"));
+        assert!(output.contains("Kiri is watching 1 port, 1 port active"));
+        assert!(!output.contains("ports active - run"));
+        assert!(!output.contains("████"));
+        assert!(!output.starts_with("☁ Kiri"));
+        assert!(!output.contains(".--(  o   o  )--."));
         assert!(!output.contains("Kiri - listening ports"));
     }
 
@@ -1228,8 +1269,13 @@ mod tests {
     fn port_table_empty_filtered_state_uses_resting_pet_status() {
         let output = strip_ansi_codes(&render_port_table_with_width(&[], true, 100));
 
-        assert!(output.starts_with("☁ Kiri is resting. No developer ports found.\n\n"));
-        assert!(output.contains("Run `ports --all` to show every listener."));
+        assert!(output.contains("⌣"));
+        assert!(output.contains("●"));
+        assert!(output.contains("Kiri is resting. No developer ports found."));
+        assert!(!output.contains("████"));
+        assert!(!output.starts_with("☁ Kiri"));
+        assert!(!output.contains(".--(  o   o  )--."));
+        assert!(output.contains("Run ports --all to show every listener."));
         assert!(!output.contains("Kiri - listening ports"));
     }
 
@@ -1241,6 +1287,20 @@ mod tests {
 
         assert!(output.starts_with("Kiri - Port 5173\n\n"));
         assert!(!output.contains("☁ Kiri is watching"));
+        assert!(!output.contains(".--(  o   o  )--."));
+        assert!(!output.contains('▀'));
+        assert!(!output.contains('▄'));
+    }
+
+    #[test]
+    fn port_table_pet_status_collapses_on_narrow_terminal() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 44));
+
+        assert!(output.starts_with("Kiri is watching 1 port, 1 port active\n\n"));
+        assert!(!output.contains("⌣"));
+        assert!(!output.contains("●"));
     }
 
     #[test]
@@ -1316,7 +1376,7 @@ mod tests {
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[38;2;34;197;94mhealthy"));
+        assert!(output.contains("\x1b[38;2;34;197;94m healthy"));
     }
 
     #[test]
@@ -1379,14 +1439,15 @@ mod tests {
     }
 
     #[test]
-    fn summary_highlights_count_command_and_all_flag() {
+    fn pet_status_highlights_counts_without_summary_hint() {
         let port = sample_port("frontend", "node vite");
 
         let output = render_port_table_with_width(&[port], true, 100);
 
-        assert!(output.contains("\x1b[38;2;21;128;61m1\x1b[0m port active"));
-        assert!(output.contains("\x1b[1m\x1b[38;2;59;130;246mports\x1b[0m"));
-        assert!(output.contains("\x1b[1m\x1b[38;2;245;158;11m--all\x1b[0m"));
+        assert!(output.contains("\x1b[38;2;239;68;68m1\x1b[0m port"));
+        assert!(output.contains(", \x1b[38;2;239;68;68m1\x1b[0m port active"));
+        assert!(!output.contains("ports active - run"));
+        assert!(!output.contains("show everything"));
     }
 
     #[test]

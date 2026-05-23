@@ -55,7 +55,7 @@ where
         }
         Err(message) => {
             eprintln!("{message}");
-            eprintln!("Run `ports --help` for usage.");
+            eprintln!("Run ports --help for usage.");
             1
         }
     }

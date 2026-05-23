@@ -23,6 +23,14 @@ The unscoped npm package name `kiri` is occupied, so the npm distribution uses t
 - Avoid asking end users to build binaries locally.
 - Keep Cargo usage limited to maintainers, CI, and local build/test workflows.
 
+## Release Confirmation Gate
+
+Do not publish a new version until the user has reviewed and approved the actual local user-visible output for that version.
+
+This gate applies before creating or pushing a release tag, running npm publish, updating the Homebrew tap, or changing any public installation channel. The preview must include the exact command output users will see, for example `ports`, `ports logs <port|pid> -f`, npm-installed `ports`, Homebrew-installed `ports`, or install script output when that channel is affected.
+
+Automated tests, GitHub Actions, dry-runs, checksums, and package audits are necessary but not sufficient. They verify correctness; they do not replace user confirmation of the product effect.
+
 ## Install Channels
 
 Planned install script:

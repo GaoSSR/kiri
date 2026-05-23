@@ -134,3 +134,9 @@ These guidelines are working if diffs contain fewer unnecessary changes, fewer r
 - Terminal output must be readable on both light and dark backgrounds. Do not use low-contrast dim gray or white text for primary table data.
 - If borrowing ideas from `/Users/gaossr/CodingProject/claude-code`, copy the interaction principle and rendering strategy, then adapt it to this project and its license constraints. Do not blindly paste unrelated framework code.
 - Every behavior-preserving refactor must have before/after verification commands.
+
+## Release Confirmation Gate
+
+- Before creating or pushing any release tag, running npm publish, updating the Homebrew tap, or otherwise publishing a new user-facing version, show the local user-visible effect first and get explicit user confirmation.
+- The release preview must include the exact install or run path being validated, such as `ports`, npm global install, Homebrew install, or curl/PowerShell install output.
+- Do not treat passing tests, GitHub Actions, or package dry-runs as enough approval for a release. User-visible CLI output must be aligned with the user first.
