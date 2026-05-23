@@ -7,6 +7,8 @@ const { spawnSync } = require("node:child_process");
 const PLATFORM_PACKAGES = {
   "darwin-arm64": "@gaossr/kiri-darwin-arm64",
   "darwin-x64": "@gaossr/kiri-darwin-x64",
+  "linux-x64": "@gaossr/kiri-linux-x64",
+  "win32-x64": "@gaossr/kiri-win32-x64",
 };
 
 function platformKey(runtime = process) {
@@ -87,7 +89,7 @@ function runBinary(command) {
     console.error(
       [
         `Kiri does not have a bundled binary for ${key}.`,
-        "macOS is supported first; Linux and Windows packages will be added after their collectors ship.",
+        "Supported npm binary packages currently cover macOS arm64/x64, Linux x64, and Windows x64.",
         "This npm package does not compile Rust locally and does not require Cargo.",
       ].join("\n")
     );

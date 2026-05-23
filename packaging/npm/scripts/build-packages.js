@@ -16,6 +16,8 @@ const PLATFORMS = [
     alias: "@gaossr/kiri-darwin-arm64",
     os: "darwin",
     cpu: "arm64",
+    archiveExt: ".tar.gz",
+    binaryName: "ports",
   },
   {
     key: "darwin-x64",
@@ -23,6 +25,26 @@ const PLATFORMS = [
     alias: "@gaossr/kiri-darwin-x64",
     os: "darwin",
     cpu: "x64",
+    archiveExt: ".tar.gz",
+    binaryName: "ports",
+  },
+  {
+    key: "linux-x64",
+    target: "x86_64-unknown-linux-musl",
+    alias: "@gaossr/kiri-linux-x64",
+    os: "linux",
+    cpu: "x64",
+    archiveExt: ".tar.gz",
+    binaryName: "ports",
+  },
+  {
+    key: "win32-x64",
+    target: "x86_64-pc-windows-msvc",
+    alias: "@gaossr/kiri-win32-x64",
+    os: "win32",
+    cpu: "x64",
+    archiveExt: ".zip",
+    binaryName: "ports.exe",
   },
 ];
 
@@ -100,23 +122,32 @@ function stageRootPackage(version) {
 }
 
 function stagePlatformPackage(version, platform, releaseDir) {
-  const archivePath = path.join(releaseDir, `kiri-${platform.target}.tar.gz`);
+  const archivePath = path.join(
+    releaseDir,
+    `kiri-${platform.target}${platform.archiveExt}`
+  );
   if (!fs.existsSync(archivePath)) {
     throw new Error(`missing release archive: ${archivePath}`);
   }
 
   const stagingDir = prepareEmptyDir(`kiri-npm-${platform.key}-`);
   const extractedDir = prepareEmptyDir(`kiri-release-${platform.key}-`);
-  execFileSync("tar", ["-xzf", archivePath, "-C", extractedDir]);
+  if (platform.archiveExt === ".zip") {
+    execFileSync("unzip", ["-q", archivePath, "-d", extractedDir]);
+  } else {
+    execFileSync("tar", ["-xzf", archivePath, "-C", extractedDir]);
+  }
 
-  const sourceBinary = path.join(extractedDir, "ports");
+  const sourceBinary = path.join(extractedDir, platform.binaryName);
   if (!fs.existsSync(sourceBinary)) {
-    throw new Error(`release archive did not contain ports: ${archivePath}`);
+    throw new Error(
+      `release archive did not contain ${platform.binaryName}: ${archivePath}`
+    );
   }
 
   const vendorDir = path.join(stagingDir, "vendor", platform.key);
   fs.mkdirSync(vendorDir, { recursive: true });
-  const binaryDest = path.join(vendorDir, "ports");
+  const binaryDest = path.join(vendorDir, platform.binaryName);
   fs.copyFileSync(sourceBinary, binaryDest);
   fs.chmodSync(binaryDest, 0o755);
 

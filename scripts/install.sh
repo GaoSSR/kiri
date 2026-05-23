@@ -32,10 +32,13 @@ detect_target() {
       esac
       ;;
     Linux)
-      fail "Linux artifacts are not available yet. Kiri currently supports macOS first; Linux support will ship after the platform collector is implemented."
+      case "$arch" in
+        x86_64|amd64) printf 'x86_64-unknown-linux-musl' ;;
+        *) fail "unsupported Linux architecture: $arch" ;;
+      esac
       ;;
     MINGW*|MSYS*|CYGWIN*)
-      fail "Windows artifacts are not available yet. Use scripts/install.ps1 after Windows support ships."
+      fail "Use scripts/install.ps1 for Windows x64 installs."
       ;;
     *)
       fail "unsupported platform: $os $arch"

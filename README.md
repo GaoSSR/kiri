@@ -29,7 +29,7 @@
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
+  <img alt="macOS Linux Windows supported" src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
@@ -47,7 +47,7 @@ Kiri is a high-performance CLI for managing local development ports, powered by 
 
 ## Install
 
-Kiri currently ships macOS release artifacts. Install with npm, Homebrew, or the GitHub Release install script:
+Kiri ships prebuilt release artifacts for macOS, Linux x64, and Windows x64. Install with npm, Homebrew, or the GitHub Release install scripts:
 
 ```bash
 # npm
@@ -56,17 +56,17 @@ npm install -g @gaossr/kiri
 # Homebrew
 brew install gaossr/tap/kiri
 
-# Install script
+# macOS / Linux install script
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
 
-Windows PowerShell is planned, but Windows runtime support is not available until the Windows collector and release artifacts ship:
+Windows users can install with PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.ps1 | iex
 ```
 
-Current support is macOS first. Linux and Windows have distribution plans, but their complete platform collectors and release artifacts are not ready yet.
+Homebrew is macOS-only. npm and the install scripts use prebuilt native binaries and do not compile Rust locally.
 
 ## Commands
 
@@ -91,11 +91,12 @@ ports kill --force 3000     # use SIGKILL instead of SIGTERM
 
 | Platform | Status |
 | --- | --- |
-| macOS | Current primary supported platform |
-| Linux | Planned; collector and release artifacts are not complete |
-| Windows | Planned; PowerShell installer currently reports unsupported until collector and artifacts ship |
+| macOS arm64/x64 | Supported |
+| Linux x64 | Supported |
+| Windows x64 | Supported |
+| Linux arm64 / Windows arm64 | Planned |
 
-On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
+On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
 
 ## Development
 

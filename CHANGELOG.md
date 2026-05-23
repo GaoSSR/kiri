@@ -6,6 +6,21 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.7 - 2026-05-23
+
+### Added
+
+- Added Linux x64 listener, process, cwd, and process-list collection.
+- Added Windows x64 listener and process collection through PowerShell/CIM.
+- Added Linux x64 and Windows x64 GitHub Release artifacts.
+- Added Linux x64 and Windows x64 npm optional binary packages.
+- Added Windows PowerShell install script support.
+
+### Changed
+
+- Updated README install and platform support sections for macOS, Linux x64,
+  and Windows x64.
+
 ## 0.1.6 - 2026-05-23
 
 ### Added

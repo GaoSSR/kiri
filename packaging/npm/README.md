@@ -1,6 +1,6 @@
 # Kiri npm Packaging
 
-This directory packages Kiri for npm with precompiled macOS binaries.
+This directory packages Kiri for npm with precompiled macOS, Linux x64, and Windows x64 binaries.
 
 Users install it with:
 
@@ -21,7 +21,9 @@ Root package optional dependencies:
 ```json
 {
   "@gaossr/kiri-darwin-arm64": "npm:@gaossr/kiri@<version>-darwin-arm64",
-  "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@<version>-darwin-x64"
+  "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@<version>-darwin-x64",
+  "@gaossr/kiri-linux-x64": "npm:@gaossr/kiri@<version>-linux-x64",
+  "@gaossr/kiri-win32-x64": "npm:@gaossr/kiri@<version>-win32-x64"
 }
 ```
 
@@ -33,6 +35,10 @@ vendor/
     ports
   darwin-x64/
     ports
+  linux-x64/
+    ports
+  win32-x64/
+    ports.exe
 ```
 
 If the matching binary is missing, the shim prints a clear error explaining that the npm package artifacts are missing and should be reinstalled.
@@ -49,7 +55,7 @@ Build release tarballs from GitHub Release assets:
 
 ```bash
 node scripts/build-packages.js \
-  --version 0.1.6 \
+  --version 0.1.7 \
   --release-dir ../../dist \
   --output-dir ../../dist/npm
 ```

@@ -61,6 +61,16 @@ jobs:
             --access public \
             --provenance \
             --registry https://registry.npmjs.org/
+          npm publish "./dist/kiri-npm-linux-x64-${VERSION}.tgz" \
+            --tag linux-x64 \
+            --access public \
+            --provenance \
+            --registry https://registry.npmjs.org/
+          npm publish "./dist/kiri-npm-win32-x64-${VERSION}.tgz" \
+            --tag win32-x64 \
+            --access public \
+            --provenance \
+            --registry https://registry.npmjs.org/
 
       - name: Publish root package
         shell: bash

@@ -10,20 +10,27 @@ const test = require("node:test");
 const packageRoot = path.resolve(__dirname, "..");
 const buildScript = path.join(packageRoot, "scripts", "build-packages.js");
 
-function createReleaseArchive(releaseDir, target) {
+function createReleaseArchive(releaseDir, target, options = {}) {
   const staging = fs.mkdtempSync(path.join(os.tmpdir(), `kiri-${target}-`));
   fs.writeFileSync(path.join(staging, "README.md"), "# Kiri\n");
   fs.writeFileSync(path.join(staging, "LICENSE"), "Apache-2.0\n");
-  const binaryPath = path.join(staging, "ports");
+  const binaryName = options.binaryName || "ports";
+  const binaryPath = path.join(staging, binaryName);
   fs.writeFileSync(binaryPath, "#!/bin/sh\necho ports\n");
   fs.chmodSync(binaryPath, 0o755);
-  execFileSync("tar", [
-    "-czf",
-    path.join(releaseDir, `kiri-${target}.tar.gz`),
-    "-C",
-    staging,
-    ".",
-  ]);
+  if (options.archiveExt === ".zip") {
+    execFileSync("zip", ["-qr", path.join(releaseDir, `kiri-${target}.zip`), "."], {
+      cwd: staging,
+    });
+  } else {
+    execFileSync("tar", [
+      "-czf",
+      path.join(releaseDir, `kiri-${target}.tar.gz`),
+      "-C",
+      staging,
+      ".",
+    ]);
+  }
 }
 
 function extractPackageJson(tarballPath, tempRoot) {
@@ -41,7 +48,7 @@ function listTarball(tarballPath) {
     .sort();
 }
 
-test("builds publishable root and macOS platform npm tarballs from release assets", () => {
+test("builds publishable root and platform npm tarballs from release assets", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kiri-npm-build-"));
   const releaseDir = path.join(tempRoot, "release");
   const outputDir = path.join(tempRoot, "npm");
@@ -50,6 +57,11 @@ test("builds publishable root and macOS platform npm tarballs from release asset
 
   createReleaseArchive(releaseDir, "aarch64-apple-darwin");
   createReleaseArchive(releaseDir, "x86_64-apple-darwin");
+  createReleaseArchive(releaseDir, "x86_64-unknown-linux-musl");
+  createReleaseArchive(releaseDir, "x86_64-pc-windows-msvc", {
+    archiveExt: ".zip",
+    binaryName: "ports.exe",
+  });
 
   execFileSync(process.execPath, [
     buildScript,
@@ -64,10 +76,14 @@ test("builds publishable root and macOS platform npm tarballs from release asset
   const rootTarball = path.join(outputDir, "kiri-npm-9.9.9.tgz");
   const armTarball = path.join(outputDir, "kiri-npm-darwin-arm64-9.9.9.tgz");
   const x64Tarball = path.join(outputDir, "kiri-npm-darwin-x64-9.9.9.tgz");
+  const linuxTarball = path.join(outputDir, "kiri-npm-linux-x64-9.9.9.tgz");
+  const windowsTarball = path.join(outputDir, "kiri-npm-win32-x64-9.9.9.tgz");
 
   assert.ok(fs.existsSync(rootTarball));
   assert.ok(fs.existsSync(armTarball));
   assert.ok(fs.existsSync(x64Tarball));
+  assert.ok(fs.existsSync(linuxTarball));
+  assert.ok(fs.existsSync(windowsTarball));
 
   const rootPackage = extractPackageJson(rootTarball, tempRoot);
   assert.equal(rootPackage.name, "@gaossr/kiri");
@@ -77,6 +93,8 @@ test("builds publishable root and macOS platform npm tarballs from release asset
   assert.deepEqual(rootPackage.optionalDependencies, {
     "@gaossr/kiri-darwin-arm64": "npm:@gaossr/kiri@9.9.9-darwin-arm64",
     "@gaossr/kiri-darwin-x64": "npm:@gaossr/kiri@9.9.9-darwin-x64",
+    "@gaossr/kiri-linux-x64": "npm:@gaossr/kiri@9.9.9-linux-x64",
+    "@gaossr/kiri-win32-x64": "npm:@gaossr/kiri@9.9.9-win32-x64",
   });
   assert.ok(!listTarball(rootTarball).includes("package/vendor/.gitkeep"));
 
@@ -96,4 +114,18 @@ test("builds publishable root and macOS platform npm tarballs from release asset
   assert.deepEqual(x64Package.os, ["darwin"]);
   assert.deepEqual(x64Package.cpu, ["x64"]);
   assert.ok(listTarball(x64Tarball).includes("package/vendor/darwin-x64/ports"));
+
+  const linuxPackage = extractPackageJson(linuxTarball, tempRoot);
+  assert.equal(linuxPackage.version, "9.9.9-linux-x64");
+  assert.deepEqual(linuxPackage.os, ["linux"]);
+  assert.deepEqual(linuxPackage.cpu, ["x64"]);
+  assert.ok(listTarball(linuxTarball).includes("package/vendor/linux-x64/ports"));
+
+  const windowsPackage = extractPackageJson(windowsTarball, tempRoot);
+  assert.equal(windowsPackage.version, "9.9.9-win32-x64");
+  assert.deepEqual(windowsPackage.os, ["win32"]);
+  assert.deepEqual(windowsPackage.cpu, ["x64"]);
+  assert.ok(
+    listTarball(windowsTarball).includes("package/vendor/win32-x64/ports.exe")
+  );
 });

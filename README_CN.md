@@ -29,7 +29,7 @@
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="macOS supported" src="https://img.shields.io/badge/macOS-supported-brightgreen" />
+  <img alt="macOS Linux Windows supported" src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
@@ -47,7 +47,7 @@ Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CL
 
 ## 安装
 
-Kiri 当前已经发布 macOS release artifacts。可以使用 npm、Homebrew 或 GitHub Release 安装脚本：
+Kiri 当前已经发布 macOS、Linux x64、Windows x64 预编译 release artifacts。可以使用 npm、Homebrew 或 GitHub Release 安装脚本：
 
 ```bash
 # npm
@@ -56,17 +56,17 @@ npm install -g @gaossr/kiri
 # Homebrew
 brew install gaossr/tap/kiri
 
-# 安装脚本
+# macOS / Linux 安装脚本
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
 ```
 
-Windows PowerShell 入口已规划，但在 Windows collector 和 release artifact 交付前，脚本会明确提示暂不支持：
+Windows 用户可以使用 PowerShell 安装：
 
 ```powershell
 irm https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.ps1 | iex
 ```
 
-当前真实支持平台是 macOS。Linux 和 Windows 已有分发规划，但完整平台采集逻辑和发布产物还没有完成。
+Homebrew 只覆盖 macOS。npm 和安装脚本使用预编译原生二进制，不会在用户机器上本地编译 Rust。
 
 ## 命令
 
@@ -91,11 +91,12 @@ ports kill --force 3000     # 使用 SIGKILL 而不是 SIGTERM
 
 | 平台 | 状态 |
 | --- | --- |
-| macOS | 当前主要真实支持平台 |
-| Linux | 已规划；collector 和 release artifacts 尚未完成 |
-| Windows | 已规划；PowerShell 安装入口当前会提示 unsupported，等待 collector 和 artifacts |
+| macOS arm64/x64 | 已支持 |
+| Linux x64 | 已支持 |
+| Windows x64 | 已支持 |
+| Linux arm64 / Windows arm64 | 已规划 |
 
-在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
+在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
 
 ## 开发
 

@@ -2,8 +2,9 @@
 
 Thanks for taking the time to improve Kiri.
 
-Kiri is currently macOS-first. Linux and Windows are planned, but they should not
-be documented as supported until their collectors and release artifacts are ready.
+Kiri supports macOS arm64/x64, Linux x64, and Windows x64 with prebuilt release
+artifacts. Linux arm64 and Windows arm64 remain planned until collectors,
+artifacts, and npm packages are published for those targets.
 
 ## Product boundaries
 
@@ -12,7 +13,7 @@ be documented as supported until their collectors and release artifacts are read
 - Cargo package: `kiri`
 - npm package: `@gaossr/kiri`
 - Homebrew formula: `gaossr/tap/kiri`
-- Current supported runtime platform: macOS
+- Current supported runtime platforms: macOS arm64/x64, Linux x64, Windows x64
 
 Do not reintroduce legacy public command names. Keep user-facing install
 instructions focused on npm, Homebrew, and the GitHub Release install script.
@@ -55,7 +56,7 @@ brew test gaossr/tap/kiri
 - Keep changes focused on the reported behavior or documented feature.
 - Add or update tests for parser, formatter, renderer, release, or packaging
   behavior whenever the change can regress.
-- Preserve the public `ports` command and the current macOS support boundary.
+- Preserve the public `ports` command and the documented platform support boundary.
 - Run the relevant verification commands before opening a pull request.
 - For release and packaging changes, include the exact install path or artifact
   that was verified.

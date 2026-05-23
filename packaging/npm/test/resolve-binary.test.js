@@ -14,14 +14,18 @@ const {
   resolveBinary,
 } = require("../lib/resolve-binary");
 
-test("maps supported macOS runtimes to npm platform package aliases", () => {
+test("maps supported runtimes to npm platform package aliases", () => {
   assert.equal(
     platformKey({ platform: "darwin", arch: "arm64" }),
     "darwin-arm64"
   );
   assert.equal(platformKey({ platform: "darwin", arch: "x64" }), "darwin-x64");
+  assert.equal(platformKey({ platform: "linux", arch: "x64" }), "linux-x64");
+  assert.equal(platformKey({ platform: "win32", arch: "x64" }), "win32-x64");
   assert.equal(platformPackageName("darwin-arm64"), "@gaossr/kiri-darwin-arm64");
   assert.equal(platformPackageName("darwin-x64"), "@gaossr/kiri-darwin-x64");
+  assert.equal(platformPackageName("linux-x64"), "@gaossr/kiri-linux-x64");
+  assert.equal(platformPackageName("win32-x64"), "@gaossr/kiri-win32-x64");
 });
 
 test("resolves ports from an installed optional platform package first", () => {
@@ -55,10 +59,10 @@ test("resolves ports from an installed optional platform package first", () => {
 });
 
 test("returns null when the platform has no npm binary package", () => {
-  assert.equal(platformPackageName("linux-x64"), undefined);
+  assert.equal(platformPackageName("linux-arm64"), undefined);
   assert.equal(
     resolveBinary("ports", {
-      runtime: { platform: "linux", arch: "x64" },
+      runtime: { platform: "linux", arch: "arm64" },
     }),
     null
   );
