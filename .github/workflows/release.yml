@@ -169,7 +169,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat dist/*.sha256 > dist/checksums.txt
+          awk '{ sub(/\r$/, ""); print }' dist/*.sha256 > dist/checksums.txt
           shasum -a 256 dist/npm/*.tgz | sed 's#dist/npm/##' >> dist/checksums.txt
 
       - name: Upload release assets

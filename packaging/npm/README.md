@@ -55,7 +55,7 @@ Build release tarballs from GitHub Release assets:
 
 ```bash
 node scripts/build-packages.js \
-  --version 0.1.8 \
+  --version 0.1.9 \
   --release-dir ../../dist \
   --output-dir ../../dist/npm
 ```
