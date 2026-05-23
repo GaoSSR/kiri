@@ -92,7 +92,7 @@ jobs:
 
           Compress-Archive -Path "$staging/*" -DestinationPath "dist/$archive.zip" -Force
           $hash = (Get-FileHash "dist/$archive.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $archive.zip" | Set-Content -NoNewline "dist/$archive.sha256"
+          "$hash  $archive.zip" | Set-Content "dist/$archive.sha256"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7.0.1
