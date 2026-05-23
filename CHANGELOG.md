@@ -6,6 +6,14 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.13 - 2026-05-23
+
+### Fixed
+
+- Prevented `ports logs` framework-log fallback tests and runtime discovery from
+  climbing into system temp roots such as `/tmp`, avoiding unrelated log files
+  outside the project tree.
+
 ## 0.1.12 - 2026-05-23
 
 ### Added

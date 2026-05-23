@@ -401,6 +401,9 @@ fn log_search_roots(cwd: &Path) -> Vec<PathBuf> {
     let mut current = Some(cwd);
 
     while let Some(path) = current {
+        if is_system_log_search_boundary(path) {
+            break;
+        }
         roots.push(path.to_path_buf());
         if roots.len() >= 4 || is_home_like_root(path) {
             break;
@@ -409,6 +412,13 @@ fn log_search_roots(cwd: &Path) -> Vec<PathBuf> {
     }
 
     roots
+}
+
+fn is_system_log_search_boundary(path: &Path) -> bool {
+    matches!(
+        path.to_str(),
+        Some("/") | Some("/tmp") | Some("/var/tmp") | Some("/private/tmp")
+    )
 }
 
 fn is_home_like_root(path: &Path) -> bool {
@@ -1576,6 +1586,21 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         assert!(logs
             .iter()
             .any(|file| file.path == log_dir.join("development.log")));
+    }
+
+    #[test]
+    fn log_search_roots_stop_before_system_temp_root() {
+        let root = temp_test_dir("stop-before-system-temp");
+        let backend = root.join("backend");
+        std::fs::create_dir_all(&backend).unwrap();
+
+        let roots = log_search_roots(&backend);
+
+        assert!(roots.contains(&backend));
+        assert!(roots.contains(&root));
+        assert!(!roots.iter().any(|path| path == Path::new("/tmp")));
+        assert!(!roots.iter().any(|path| path == Path::new("/var/tmp")));
+        assert!(!roots.iter().any(|path| path == Path::new("/private/tmp")));
     }
 
     fn sample_log_files() -> Vec<LogFile> {
