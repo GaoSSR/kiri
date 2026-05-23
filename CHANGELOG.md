@@ -6,6 +6,16 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.10 - 2026-05-23
+
+### Fixed
+
+- Fixed `ports logs` discovery for processes whose stdout or stderr is piped
+  into another process that writes the real log file, such as
+  `java | tee -a /tmp/nori-backend.log`.
+- Fixed empty macOS system log output being treated as useful log output when
+  `log show` returns only its table header.
+
 ## 0.1.9 - 2026-05-23
 
 ### Added
