@@ -51,8 +51,15 @@ download_url() {
   if [ "$version" = "latest" ]; then
     printf 'https://github.com/%s/releases/latest/download/%s' "$repo" "$artifact"
   else
-    printf 'https://github.com/%s/releases/download/%s/%s' "$repo" "$version" "$artifact"
+    printf 'https://github.com/%s/releases/download/%s/%s' "$repo" "$(release_tag)" "$artifact"
   fi
+}
+
+release_tag() {
+  case "$version" in
+    v*) printf '%s' "$version" ;;
+    *) printf 'v%s' "$version" ;;
+  esac
 }
 
 need curl

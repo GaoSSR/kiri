@@ -6,6 +6,13 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.19 - 2026-05-24
+
+### Fixed
+
+- Fixed the macOS/Linux and Windows install scripts so `KIRI_VERSION=0.1.19`
+  and `KIRI_VERSION=v0.1.19` both resolve the GitHub Release tag correctly.
+
 ## 0.1.18 - 2026-05-24
 
 ### Added

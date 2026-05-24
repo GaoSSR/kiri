@@ -31,7 +31,14 @@ function Release-Url {
     if ($Version -eq "latest") {
         return "https://github.com/$Repo/releases/latest/download/$Artifact"
     }
-    return "https://github.com/$Repo/releases/download/$Version/$Artifact"
+    return "https://github.com/$Repo/releases/download/$(Release-Tag)/$Artifact"
+}
+
+function Release-Tag {
+    if ($Version.StartsWith("v")) {
+        return $Version
+    }
+    return "v$Version"
 }
 
 $Target = Resolve-Target

@@ -1,6 +1,6 @@
 [package]
 name = "kiri"
-version = "0.1.18"
+version = "0.1.19"
 edition = "2021"
 description = "Kiri CLI for inspecting local listening ports"
 license = "Apache-2.0"
