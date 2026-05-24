@@ -31,8 +31,8 @@ function platformKey(runtime = process) {
   return `${platform}-${arch}`;
 }
 
-function binaryName(command) {
-  return process.platform === "win32" ? `${command}.exe` : command;
+function binaryName(command, runtime = process) {
+  return runtime.platform === "win32" ? `${command}.exe` : command;
 }
 
 function platformPackageName(key) {
@@ -42,11 +42,16 @@ function platformPackageName(key) {
 function binaryPath(command, options = {}) {
   const packageRoot = options.packageRoot || path.join(__dirname, "..");
   const runtime = options.runtime || process;
-  return path.join(packageRoot, "vendor", platformKey(runtime), binaryName(command));
+  return path.join(
+    packageRoot,
+    "vendor",
+    platformKey(runtime),
+    binaryName(command, runtime)
+  );
 }
 
-function platformPackageBinaryPath(packageRoot, key, command) {
-  return path.join(packageRoot, "vendor", key, binaryName(command));
+function platformPackageBinaryPath(packageRoot, key, command, runtime = process) {
+  return path.join(packageRoot, "vendor", key, binaryName(command, runtime));
 }
 
 function resolveBinary(command, options = {}) {
@@ -64,7 +69,8 @@ function resolveBinary(command, options = {}) {
     const resolved = platformPackageBinaryPath(
       path.dirname(packageJsonPath),
       key,
-      command
+      command,
+      runtime
     );
     if (fs.existsSync(resolved)) {
       return resolved;
@@ -122,6 +128,7 @@ function runBinary(command) {
 
 module.exports = {
   binaryPath,
+  binaryName,
   platformPackageName,
   platformKey,
   resolveBinary,

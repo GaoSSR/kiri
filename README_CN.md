@@ -38,6 +38,14 @@
 
 Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
 
+<p align="center">
+  <img src="assets/readme/ports-overview.png" alt="Kiri 端口概览" width="880">
+</p>
+
+<p align="center">
+  <img src="assets/readme/logs-follow.png" alt="Kiri 彩色日志监听" width="880">
+</p>
+
 ## 认识 Kiri
 
 默认 `ports` 终端视图会先显示一个紧凑的 Kiri 伙伴，然后再展示端口表：

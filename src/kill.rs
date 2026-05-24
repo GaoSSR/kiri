@@ -398,6 +398,14 @@ mod tests {
         }
     }
 
+    struct PanicKiller;
+
+    impl ProcessKiller for PanicKiller {
+        fn kill(&self, _pid: u32, _signal: KillSignal) -> bool {
+            panic!("killer must not be called for invalid arguments");
+        }
+    }
+
     #[test]
     fn resolve_target_prefers_listener_port_when_port_matches() {
         let mut resolver = MockResolver::default();
@@ -502,6 +510,17 @@ mod tests {
                 .signal,
             KillSignal::Kill
         );
+    }
+
+    #[test]
+    fn rejects_unknown_dash_arguments_without_killing_anything() {
+        let mut resolver = MockResolver::default();
+        resolver.ports.insert(3000, port_info(3000, 1111, "node"));
+
+        let outcome = execute_kill_command(&strings(["--all", "3000"]), &resolver, &PanicKiller);
+
+        assert_eq!(outcome.exit_code, 1);
+        assert!(outcome.output.contains("\"--all\" is not a valid port/PID"));
     }
 
     #[test]

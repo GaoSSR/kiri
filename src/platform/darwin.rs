@@ -68,8 +68,7 @@ pub fn batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
         .map(u32::to_string)
         .collect::<Vec<String>>()
         .join(",");
-    let output = match Command::new("ps")
-        .env("LC_ALL", "C")
+    let output = match ps_command()
         .args([
             "-p",
             &pid_list,
@@ -180,8 +179,7 @@ pub fn parse_cwd_output(raw: &str) -> HashMap<u32, PathBuf> {
 }
 
 pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
-    let output = match Command::new("ps")
-        .env("LC_ALL", "C")
+    let output = match ps_command()
         .args(["-eo", "pid=,pcpu=,pmem=,rss=,lstart=,command="])
         .output()
     {
@@ -260,6 +258,12 @@ fn parse_port_from_name_field(name_field: &str) -> Option<u16> {
     }
 
     Some(port as u16)
+}
+
+fn ps_command() -> Command {
+    let mut command = Command::new("ps");
+    command.env_remove("LC_ALL").env("LC_TIME", "C");
+    command
 }
 
 fn process_name_from_command(command: &str) -> String {
@@ -523,6 +527,19 @@ node    42872 user  cwd    DIR   1,18      640 1234 relative/project
             processes[0].command,
             "/usr/local/bin/node /repo/app/server.js"
         );
+    }
+
+    #[test]
+    fn parses_all_process_lines_without_losing_utf8_command_text() {
+        let raw = "\
+9109 8.1 1.0 479056 Sat May 23 21:23:57 2026 /Applications/抖音.app/Contents/MacOS/抖音 Helper
+";
+
+        let processes = parse_all_processes(raw, 99999);
+
+        assert_eq!(processes.len(), 1);
+        assert_eq!(processes[0].process_name, "抖音");
+        assert!(processes[0].command.contains("抖音 Helper"));
     }
 
     #[test]

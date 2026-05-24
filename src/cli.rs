@@ -5,6 +5,7 @@ use crate::process::get_all_processes;
 use crate::render::table::{render_port_detail, render_port_table, render_process_table};
 use crate::scanner::{get_listening_ports, get_port_details};
 use crate::watch::run_watch_command;
+use std::io::{self, Write};
 
 pub fn run_from_env() -> i32 {
     run(std::env::args().skip(1))
@@ -18,44 +19,47 @@ where
     match parse_args(args) {
         Ok(Command::List { show_all }) => {
             let ports = get_listening_ports(show_all);
-            print!("{}", render_port_table(&ports, !show_all));
-            0
+            finish_output(render_port_table(&ports, !show_all), 0)
         }
         Ok(Command::PortDetails { port }) => {
-            match get_port_details(port) {
-                Some(info) => print!("{}", render_port_detail(&info)),
-                None => println!("No process found listening on :{port}."),
-            }
-            0
+            let output = match get_port_details(port) {
+                Some(info) => render_port_detail(&info),
+                None => format!("No process found listening on :{port}.\n"),
+            };
+            finish_output(output, 0)
         }
         Ok(Command::Kill { args }) => {
             let outcome = run_kill_command(&args);
-            print!("{}", outcome.output);
-            outcome.exit_code
+            finish_output(outcome.output, outcome.exit_code)
         }
         Ok(Command::Ps { show_all }) => {
             let processes = get_all_processes(show_all);
-            print!("{}", render_process_table(&processes, !show_all));
-            0
+            finish_output(render_process_table(&processes, !show_all), 0)
         }
         Ok(Command::Logs { args }) => {
             let outcome = run_logs_command(&args);
-            print!("{}", outcome.output);
-            outcome.exit_code
+            finish_output(outcome.output, outcome.exit_code)
         }
         Ok(Command::Clean) => {
             let outcome = run_clean_command();
-            print!("{}", outcome.output);
-            outcome.exit_code
+            finish_output(outcome.output, outcome.exit_code)
         }
         Ok(Command::Watch) => run_watch_command(),
-        Ok(Command::Help) => {
-            print_help();
-            0
-        }
+        Ok(Command::Help) => finish_output(help_text(), 0),
         Err(message) => {
             eprintln!("{message}");
             eprintln!("Run ports --help for usage.");
+            1
+        }
+    }
+}
+
+fn finish_output(output: String, exit_code: i32) -> i32 {
+    match io::stdout().write_all(output.as_bytes()) {
+        Ok(()) => exit_code,
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => 0,
+        Err(error) => {
+            eprintln!("failed to write output: {error}");
             1
         }
     }
@@ -80,10 +84,9 @@ where
 {
     let args: Vec<String> = args.into_iter().map(Into::into).collect();
     reject_color_options(&args)?;
-    let (args, show_all) = extract_show_all(args);
 
     if args.is_empty() {
-        return Ok(Command::List { show_all });
+        return Ok(Command::List { show_all: false });
     }
 
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
@@ -91,13 +94,26 @@ where
     }
 
     match args[0].as_str() {
+        "--all" | "-a" => {
+            if args.len() == 1 {
+                return Ok(Command::List { show_all: true });
+            }
+            if args.len() == 2 && args[1] == "ps" {
+                return Ok(Command::Ps { show_all: true });
+            }
+            Err(format!("Unknown arguments: {}", args[1..].join(" ")))
+        }
         "kill" => {
             let kill_args = args.into_iter().skip(1).collect();
             Ok(Command::Kill { args: kill_args })
         }
         "ps" => {
-            if args.len() > 1 {
+            let show_all = args.get(1).is_some_and(|arg| arg == "--all" || arg == "-a");
+            if args.len() > 1 && !show_all {
                 return Err(format!("Unknown arguments: {}", args[1..].join(" ")));
+            }
+            if args.len() > 2 {
+                return Err(format!("Unknown arguments: {}", args[2..].join(" ")));
             }
             Ok(Command::Ps { show_all })
         }
@@ -137,21 +153,6 @@ fn reject_color_options(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn extract_show_all(args: Vec<String>) -> (Vec<String>, bool) {
-    let mut show_all = false;
-    let mut output = Vec::with_capacity(args.len());
-
-    for arg in args {
-        if arg == "--all" || arg == "-a" {
-            show_all = true;
-        } else {
-            output.push(arg);
-        }
-    }
-
-    (output, show_all)
-}
-
 fn parse_port(value: &str) -> Result<u16, String> {
     let port = value
         .parse::<u32>()
@@ -166,18 +167,22 @@ fn parse_port(value: &str) -> Result<u16, String> {
     Ok(port as u16)
 }
 
-fn print_help() {
-    println!("Kiri - inspect local listening ports");
-    println!();
-    println!("Usage:");
-    println!("  ports          Show developer listening ports");
-    println!("  ports --all    Show all listening ports");
-    println!("  ports <port>   Show port details");
-    println!("  ports ps       Show running developer processes");
-    println!("  ports logs <port|pid> [-f|--follow] [--lines N] [--err]");
-    println!("  ports clean    Find orphaned/zombie dev processes and ask before killing");
-    println!("  ports watch    Monitor developer port changes");
-    println!("  ports kill [-f|--force] <port|pid|range> [...]");
+fn help_text() -> String {
+    [
+        "Kiri - inspect local listening ports",
+        "",
+        "Usage:",
+        "  ports          Show developer listening ports",
+        "  ports --all    Show all listening ports",
+        "  ports <port>   Show port details",
+        "  ports ps       Show running developer processes",
+        "  ports logs <port|pid> [-f|--follow] [--lines N] [--err]",
+        "  ports clean    Find orphaned/zombie dev processes and ask before killing",
+        "  ports watch    Monitor developer port changes",
+        "  ports kill [-f|--force] <port|pid|range> [...]",
+        "",
+    ]
+    .join("\n")
 }
 
 #[cfg(test)]
@@ -220,6 +225,15 @@ mod tests {
         assert_eq!(
             parse_args(["--all", "ps"]),
             Ok(Command::Ps { show_all: true })
+        );
+        assert_eq!(
+            parse_args(["ps", "--all"]),
+            Ok(Command::Ps { show_all: true })
+        );
+        assert_eq!(parse_args(["ps", "-a"]), Ok(Command::Ps { show_all: true }));
+        assert_eq!(
+            parse_args(["ps", "--all", "extra"]),
+            Err("Unknown arguments: extra".to_string())
         );
     }
 
@@ -267,6 +281,30 @@ mod tests {
                     "3001-3002".to_string()
                 ]
             })
+        );
+    }
+
+    #[test]
+    fn all_flag_is_scoped_to_list_and_ps_commands() {
+        assert_eq!(
+            parse_args(["3000", "--all"]),
+            Err("Unknown arguments: --all".to_string())
+        );
+        assert_eq!(
+            parse_args(["kill", "--all", "3000"]),
+            Ok(Command::Kill {
+                args: vec!["--all".to_string(), "3000".to_string()]
+            })
+        );
+        assert_eq!(
+            parse_args(["logs", "3000", "--all"]),
+            Ok(Command::Logs {
+                args: vec!["3000".to_string(), "--all".to_string()]
+            })
+        );
+        assert_eq!(
+            parse_args(["--all", "kill", "3000"]),
+            Err("Unknown arguments: kill 3000".to_string())
         );
     }
 

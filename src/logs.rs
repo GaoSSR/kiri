@@ -1,9 +1,11 @@
 use crate::kill::{resolve_target, SystemResolver};
 use crate::platform;
+use chrono::{Local, NaiveDateTime, TimeZone};
 use std::collections::HashSet;
-use std::io::{self, BufRead, BufReader, IsTerminal, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::{Duration, SystemTime};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogRequest {
@@ -210,14 +212,14 @@ fn parse_target(value: &str) -> Result<u32, LogParseError> {
 }
 
 pub fn get_process_log_files(pid: u32) -> Vec<LogFile> {
-    let mut files = Vec::new();
+    let mut current_files = Vec::new();
     let mut pipe_ids = HashSet::new();
 
     if cfg!(any(target_os = "macos", target_os = "linux")) {
         if let Ok(output) = Command::new("lsof").args(["-p", &pid.to_string()]).output() {
             if output.status.success() {
                 let raw = String::from_utf8_lossy(&output.stdout);
-                files.extend(parse_lsof_log_files(&raw));
+                current_files.extend(parse_lsof_log_files(&raw));
                 pipe_ids = parse_lsof_pipe_ids(&raw);
             }
         }
@@ -227,16 +229,24 @@ pub fn get_process_log_files(pid: u32) -> Vec<LogFile> {
         if let Ok(output) = Command::new("lsof").output() {
             if output.status.success() {
                 let raw = String::from_utf8_lossy(&output.stdout);
-                files.extend(parse_pipe_writer_log_files(&raw, &pipe_ids));
+                current_files.extend(parse_pipe_writer_log_files(&raw, &pipe_ids));
             }
         }
     }
 
-    if let Some(cwd) = platform::batch_cwd(&[pid]).get(&pid).cloned() {
-        files.extend(common_framework_logs(&cwd));
+    if !current_files.is_empty() {
+        return process_log_candidates(current_files, Vec::new());
     }
 
-    sort_and_deduplicate_log_files(files)
+    let mut discovered_files = Vec::new();
+    if let (Some(cwd), Some(started_at)) = (
+        platform::batch_cwd(&[pid]).get(&pid).cloned(),
+        process_start_time(pid),
+    ) {
+        discovered_files.extend(common_framework_logs(&cwd, Some(started_at)));
+    }
+
+    process_log_candidates(current_files, discovered_files)
 }
 
 pub fn parse_lsof_log_files(raw: &str) -> Vec<LogFile> {
@@ -252,10 +262,10 @@ pub fn parse_lsof_log_files(raw: &str) -> Vec<LogFile> {
         let file_type = parts[4];
         let path = parts[8..].join(" ");
 
-        if (fd == "1w" || fd == "2w") && file_type == "REG" {
+        if matches!(fd_number(fd), Some(1 | 2)) && file_type == "REG" && is_writable_fd(fd) {
             files.push(LogFile {
                 path: PathBuf::from(&path),
-                fd: if fd == "1w" {
+                fd: if fd_number(fd) == Some(1) {
                     LogFd::Stdout
                 } else {
                     LogFd::Stderr
@@ -266,7 +276,7 @@ pub fn parse_lsof_log_files(raw: &str) -> Vec<LogFile> {
             continue;
         }
 
-        if file_type == "REG" && fd.ends_with('w') && is_log_like_path(&path) {
+        if file_type == "REG" && is_writable_fd(fd) && is_log_like_path(&path) {
             files.push(LogFile {
                 path: PathBuf::from(&path),
                 fd: LogFd::File,
@@ -324,7 +334,7 @@ fn parse_pipe_writer_log_files(raw: &str, pipe_ids: &HashSet<String>) -> Vec<Log
             continue;
         };
 
-        if fd.contains('w') && is_log_like_path(&path) {
+        if is_writable_fd(fd) && is_log_like_path(&path) {
             files.push(LogFile {
                 path: PathBuf::from(path),
                 fd: LogFd::File,
@@ -354,6 +364,10 @@ fn fd_number(fd: &str) -> Option<u32> {
         .flatten()
 }
 
+fn is_writable_fd(fd: &str) -> bool {
+    fd.contains('w') || fd.contains('u')
+}
+
 pub fn is_log_like_path(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
     lower.ends_with(".log")
@@ -367,33 +381,52 @@ pub fn is_log_like_path(path: &str) -> bool {
         || lower.contains("stderr")
 }
 
-fn common_framework_logs(cwd: &Path) -> Vec<LogFile> {
+fn common_framework_logs(cwd: &Path, started_at: Option<SystemTime>) -> Vec<LogFile> {
     let mut files = Vec::new();
     let component_name = cwd.file_name().and_then(|name| name.to_str());
 
     for root in log_search_roots(cwd) {
-        files.extend(fixed_framework_log_paths(&root));
+        files.extend(fixed_framework_log_paths(&root, started_at));
         if let Some(component_name) = component_name {
-            files.extend(component_log_paths(&root, component_name));
+            files.extend(component_log_paths(&root, component_name, started_at));
             files.extend(component_rotated_log_paths(
                 &root.join(".dev-logs"),
                 component_name,
+                started_at,
             ));
             files.extend(component_rotated_log_paths(
                 &root.join("logs"),
                 component_name,
+                started_at,
             ));
             files.extend(component_rotated_log_paths(
                 &root.join("log"),
                 component_name,
+                started_at,
             ));
         }
-        files.extend(log_files_in_dir(&root.join(".dev-logs"), 5));
-        files.extend(log_files_in_dir(&root.join("logs"), 5));
-        files.extend(log_files_in_dir(&root.join("log"), 5));
+        files.extend(log_files_in_dir(&root.join(".dev-logs"), 5, started_at));
+        files.extend(log_files_in_dir(&root.join("logs"), 5, started_at));
+        files.extend(log_files_in_dir(&root.join("log"), 5, started_at));
     }
 
     sort_and_deduplicate_log_files(files)
+}
+
+fn process_start_time(pid: u32) -> Option<SystemTime> {
+    let process = platform::batch_process_info(&[pid]).remove(&pid)?;
+    parse_lstart_system_time(&process.lstart)
+}
+
+fn parse_lstart_system_time(lstart: &str) -> Option<SystemTime> {
+    let start = NaiveDateTime::parse_from_str(lstart, "%b %e %H:%M:%S %Y").ok()?;
+    let start = Local.from_local_datetime(&start).single()?;
+    let timestamp = start.timestamp();
+    if timestamp < 0 {
+        return None;
+    }
+
+    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp as u64))
 }
 
 fn log_search_roots(cwd: &Path) -> Vec<PathBuf> {
@@ -429,7 +462,7 @@ fn is_home_like_root(path: &Path) -> bool {
     name == "Users" || name == "home"
 }
 
-fn fixed_framework_log_paths(root: &Path) -> Vec<LogFile> {
+fn fixed_framework_log_paths(root: &Path, started_at: Option<SystemTime>) -> Vec<LogFile> {
     [
         ".next/server.log",
         "logs/development.log",
@@ -440,11 +473,15 @@ fn fixed_framework_log_paths(root: &Path) -> Vec<LogFile> {
         "yarn-error.log",
     ]
     .into_iter()
-    .filter_map(|relative| framework_log_file(root.join(relative), 4))
+    .filter_map(|relative| framework_log_file(root.join(relative), 4, started_at))
     .collect()
 }
 
-fn component_log_paths(root: &Path, component_name: &str) -> Vec<LogFile> {
+fn component_log_paths(
+    root: &Path,
+    component_name: &str,
+    started_at: Option<SystemTime>,
+) -> Vec<LogFile> {
     [
         root.join(".dev-logs").join(format!("{component_name}.log")),
         root.join("logs").join(format!("{component_name}.log")),
@@ -453,12 +490,16 @@ fn component_log_paths(root: &Path, component_name: &str) -> Vec<LogFile> {
     .into_iter()
     .filter_map(|path| {
         let priority = if is_non_empty_file(&path) { 3 } else { 6 };
-        framework_log_file(path, priority)
+        framework_log_file(path, priority, started_at)
     })
     .collect()
 }
 
-fn component_rotated_log_paths(dir: &Path, component_name: &str) -> Vec<LogFile> {
+fn component_rotated_log_paths(
+    dir: &Path,
+    component_name: &str,
+    started_at: Option<SystemTime>,
+) -> Vec<LogFile> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -471,25 +512,34 @@ fn component_rotated_log_paths(dir: &Path, component_name: &str) -> Vec<LogFile>
             let file_name = path.file_name()?.to_str()?;
             (file_name.starts_with(&prefix) && is_non_empty_file(&path))
                 .then_some(path)
-                .and_then(|path| framework_log_file(path, 4))
+                .and_then(|path| framework_log_file(path, 4, started_at))
         })
         .collect()
 }
 
-fn log_files_in_dir(dir: &Path, priority: u8) -> Vec<LogFile> {
+fn log_files_in_dir(dir: &Path, priority: u8, started_at: Option<SystemTime>) -> Vec<LogFile> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
 
     entries
         .filter_map(Result::ok)
-        .filter_map(|entry| framework_log_file(entry.path(), priority))
+        .filter_map(|entry| framework_log_file(entry.path(), priority, started_at))
         .collect()
 }
 
-fn framework_log_file(path: PathBuf, priority: u8) -> Option<LogFile> {
+fn framework_log_file(
+    path: PathBuf,
+    priority: u8,
+    started_at: Option<SystemTime>,
+) -> Option<LogFile> {
     if !path.is_file() || !is_framework_log_like_path(&path) {
         return None;
+    }
+    if let Some(started_at) = started_at {
+        if !file_modified_since(&path, started_at) {
+            return None;
+        }
     }
 
     Some(LogFile {
@@ -512,6 +562,17 @@ fn is_framework_log_like_path(path: &Path) -> bool {
         || lower.contains("stderr")
 }
 
+fn file_modified_since(path: &Path, started_at: SystemTime) -> bool {
+    let Ok(modified_at) = path.metadata().and_then(|metadata| metadata.modified()) else {
+        return false;
+    };
+    let threshold = started_at
+        .checked_sub(Duration::from_secs(2))
+        .unwrap_or(started_at);
+
+    modified_at >= threshold
+}
+
 fn is_non_empty_file(path: &Path) -> bool {
     path.metadata()
         .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
@@ -531,47 +592,19 @@ fn sort_and_deduplicate_log_files(mut files: Vec<LogFile>) -> Vec<LogFile> {
         .collect()
 }
 
+fn process_log_candidates(
+    current_files: Vec<LogFile>,
+    discovered_files: Vec<LogFile>,
+) -> Vec<LogFile> {
+    if !current_files.is_empty() {
+        return sort_and_deduplicate_log_files(current_files);
+    }
+
+    sort_and_deduplicate_log_files(discovered_files)
+}
+
 fn select_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
-    if should_prompt_log_file_selection(log_files) {
-        prompt_log_file_selection(log_files).or_else(|| auto_select_log_file(log_files))
-    } else {
-        auto_select_log_file(log_files)
-    }
-}
-
-fn should_prompt_log_file_selection(log_files: &[LogFile]) -> bool {
-    log_files.len() > 1 && io::stdin().is_terminal() && io::stdout().is_terminal()
-}
-
-fn prompt_log_file_selection(log_files: &[LogFile]) -> Option<&LogFile> {
-    println!("Multiple log files found:");
-    for (index, file) in log_files.iter().enumerate() {
-        println!(
-            "  {}. {} ({})",
-            index + 1,
-            file.path.display(),
-            log_file_label(file)
-        );
-    }
-    print!("Select log file [1]: ");
-    let _ = io::stdout().flush();
-
-    let mut answer = String::new();
-    if io::stdin().read_line(&mut answer).is_err() {
-        return None;
-    }
-
-    select_log_file_by_number(log_files, &answer)
-}
-
-fn select_log_file_by_number<'a>(log_files: &'a [LogFile], answer: &str) -> Option<&'a LogFile> {
-    let trimmed = answer.trim();
-    if trimmed.is_empty() {
-        return log_files.first();
-    }
-
-    let number = trimmed.parse::<usize>().ok()?;
-    number.checked_sub(1).and_then(|index| log_files.get(index))
+    auto_select_log_file(log_files)
 }
 
 fn auto_select_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
@@ -646,8 +679,9 @@ fn run_streaming_command(
     args: &[String],
     mut output: String,
 ) -> LogCommandOutcome {
-    print!("{output}");
-    let _ = io::stdout().flush();
+    if let Err(error) = write_stream_output(&output) {
+        return streaming_write_error(error, None);
+    }
 
     let mut child = match Command::new(command)
         .args(args)
@@ -682,8 +716,9 @@ fn run_streaming_command(
         match reader.read_line(&mut line) {
             Ok(0) => break,
             Ok(_) => {
-                print!("{}", colorize_log_output(&line));
-                let _ = io::stdout().flush();
+                if let Err(error) = write_stream_output(&colorize_log_output(&line)) {
+                    return streaming_write_error(error, Some(&mut child));
+                }
             }
             Err(error) => {
                 eprintln!("Failed to read log output: {error}");
@@ -704,6 +739,35 @@ fn run_streaming_command(
         .unwrap_or(1);
     LogCommandOutcome {
         exit_code,
+        output: String::new(),
+    }
+}
+
+fn write_stream_output(value: &str) -> io::Result<()> {
+    let mut stdout = io::stdout();
+    stdout.write_all(value.as_bytes())?;
+    stdout.flush()
+}
+
+fn streaming_write_error(
+    error: io::Error,
+    child: Option<&mut std::process::Child>,
+) -> LogCommandOutcome {
+    if let Some(child) = child {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    if error.kind() == io::ErrorKind::BrokenPipe {
+        return LogCommandOutcome {
+            exit_code: 0,
+            output: String::new(),
+        };
+    }
+
+    eprintln!("Failed to write log output: {error}");
+    LogCommandOutcome {
+        exit_code: 1,
         output: String::new(),
     }
 }
@@ -765,7 +829,7 @@ fn system_log_output_has_records(output: &str) -> bool {
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_BOLD: &str = "\x1b[1m";
 const LOG_TIMESTAMP: &str = "\x1b[38;5;45m";
-const LOG_GREEN: &str = "\x1b[38;2;21;128;61m";
+const LOG_GREEN: &str = "\x1b[38;2;34;197;94m";
 const LOG_FRAMEWORK_RED: &str = "\x1b[38;2;239;68;68m";
 const LOG_INFO: &str = LOG_GREEN;
 const LOG_WARN: &str = "\x1b[38;5;214m";
@@ -1276,6 +1340,23 @@ node    42872 user   12r   REG   1,18      640 1237 /repo/src/main.rs
     }
 
     #[test]
+    fn parses_lsof_read_write_stdout_stderr_and_log_files() {
+        let raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+node    42872 user    1u   REG   1,18      640 1234 /tmp/dev.stdout
+node    42872 user    2u   REG   1,18      640 1235 /tmp/dev.stderr
+node    42872 user   11u   REG   1,18      640 1236 /repo/log/app.log
+";
+
+        let files = parse_lsof_log_files(raw);
+
+        assert_eq!(files.len(), 3);
+        assert_eq!(files[0].fd, LogFd::Stdout);
+        assert_eq!(files[1].fd, LogFd::Stderr);
+        assert_eq!(files[2].fd, LogFd::File);
+    }
+
+    #[test]
     fn parses_pipe_endpoint_written_by_tee_to_log_file() {
         let target_raw = "\
 COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
@@ -1300,6 +1381,24 @@ tee     68361 user    3w   REG   1,15    116166    /private/tmp/nori-backend.log
         );
         assert_eq!(files[0].fd, LogFd::File);
         assert_eq!(files[0].kind, LogFileKind::Redirect);
+    }
+
+    #[test]
+    fn parses_pipe_writer_read_write_log_file() {
+        let pipe_ids = HashSet::from(["0xaaaa".to_string()]);
+        let peer_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+tee     68361 user    0   PIPE 0xbbbb    16384      ->0xaaaa
+tee     68361 user    3u   REG   1,15    116166    /private/tmp/nori-backend.log
+";
+
+        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].path,
+            PathBuf::from("/private/tmp/nori-backend.log")
+        );
     }
 
     #[test]
@@ -1356,12 +1455,13 @@ tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
     }
 
     #[test]
-    fn log_palette_uses_muted_green_for_info_source_and_success_values() {
+    fn log_palette_uses_bright_green_for_info_source_and_success_values() {
         let line = "2026-05-23T18:45:04.859+08:00  INFO [traceId:-] 15224 --- [main] c.n.a.Service status=200 result=SUCCESS";
 
         let colored = colorize_log_line(line);
 
-        assert!(colored.contains("\x1b[38;2;21;128;61m"));
+        assert!(colored.contains("\x1b[38;2;34;197;94m"));
+        assert!(!colored.contains("\x1b[38;2;21;128;61m"));
         assert!(!colored.contains("\x1b[38;5;82m"));
         assert!(!colored.contains("\x1b[38;5;120m"));
     }
@@ -1382,9 +1482,9 @@ tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
 
         let colored = colorize_log_line(line);
 
-        assert!(colored.contains("\x1b[38;2;21;128;61mc.n.a.Service\x1b[0m"));
+        assert!(colored.contains("\x1b[38;2;34;197;94mc.n.a.Service\x1b[0m"));
         assert!(colored.contains("complete."));
-        assert!(!colored.contains("\x1b[38;2;21;128;61mcomplete.\x1b[0m"));
+        assert!(!colored.contains("\x1b[38;2;34;197;94mcomplete.\x1b[0m"));
     }
 
     #[test]
@@ -1493,30 +1593,66 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
     }
 
     #[test]
-    fn selects_log_file_by_number_for_interactive_choices() {
+    fn non_interactive_auto_selection_uses_deterministic_first_file() {
         let files = sample_log_files();
 
-        let selected = select_log_file_by_number(&files, "2").unwrap();
-
-        assert_eq!(selected.path, PathBuf::from("/tmp/app.stderr"));
-        assert!(select_log_file_by_number(&files, "9").is_none());
-        assert!(select_log_file_by_number(&files, "abc").is_none());
-    }
-
-    #[test]
-    fn empty_log_selection_defaults_to_first_file() {
-        let files = sample_log_files();
-
-        let selected = select_log_file_by_number(&files, "").unwrap();
+        let selected = auto_select_log_file(&files).unwrap();
 
         assert_eq!(selected.path, PathBuf::from("/tmp/app.stdout"));
     }
 
     #[test]
-    fn non_interactive_auto_selection_uses_deterministic_first_file() {
+    fn current_process_logs_exclude_discovered_project_history() {
+        let current_files = vec![LogFile {
+            path: PathBuf::from("/private/tmp/nori-backend.log"),
+            fd: LogFd::File,
+            kind: LogFileKind::Redirect,
+            priority: 1,
+        }];
+        let discovered_files = vec![
+            LogFile {
+                path: PathBuf::from("/repo/.dev-logs/backend.log"),
+                fd: LogFd::File,
+                kind: LogFileKind::Framework,
+                priority: 3,
+            },
+            LogFile {
+                path: PathBuf::from("/repo/.dev-logs/backend-20260520-160517.log"),
+                fd: LogFd::File,
+                kind: LogFileKind::Framework,
+                priority: 4,
+            },
+        ];
+
+        let files = process_log_candidates(current_files, discovered_files);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].path,
+            PathBuf::from("/private/tmp/nori-backend.log")
+        );
+    }
+
+    #[test]
+    fn discovered_project_logs_are_used_only_when_no_current_log_exists() {
+        let discovered_files = vec![LogFile {
+            path: PathBuf::from("/repo/.dev-logs/backend.log"),
+            fd: LogFd::File,
+            kind: LogFileKind::Framework,
+            priority: 3,
+        }];
+
+        let files = process_log_candidates(Vec::new(), discovered_files);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, PathBuf::from("/repo/.dev-logs/backend.log"));
+    }
+
+    #[test]
+    fn select_log_file_uses_sorted_current_stdout_without_prompt() {
         let files = sample_log_files();
 
-        let selected = auto_select_log_file(&files).unwrap();
+        let selected = select_log_file(&files).unwrap();
 
         assert_eq!(selected.path, PathBuf::from("/tmp/app.stdout"));
     }
@@ -1542,7 +1678,7 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         std::fs::write(log_dir.join("backend-20260520.log"), "old").unwrap();
         std::fs::write(log_dir.join("backend.log"), "current").unwrap();
 
-        let logs = common_framework_logs(&backend);
+        let logs = common_framework_logs(&backend, None);
 
         assert_eq!(
             logs.first().map(|file| file.path.as_path()),
@@ -1564,7 +1700,7 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         std::fs::write(log_dir.join("backend-20260520.log"), "current output").unwrap();
         std::fs::write(log_dir.join("frontend.log"), "frontend").unwrap();
 
-        let logs = common_framework_logs(&backend);
+        let logs = common_framework_logs(&backend, None);
 
         assert_eq!(
             logs.first().map(|file| file.path.as_path()),
@@ -1581,7 +1717,7 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         std::fs::create_dir_all(&log_dir).unwrap();
         std::fs::write(log_dir.join("backend.txt"), "not a log").unwrap();
 
-        let logs = common_framework_logs(&backend);
+        let logs = common_framework_logs(&backend, None);
 
         assert!(logs.is_empty());
     }
@@ -1593,11 +1729,51 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
         std::fs::create_dir_all(&log_dir).unwrap();
         std::fs::write(log_dir.join("development.log"), "rails").unwrap();
 
-        let logs = common_framework_logs(&root);
+        let logs = common_framework_logs(&root, None);
 
         assert!(logs
             .iter()
             .any(|file| file.path == log_dir.join("development.log")));
+    }
+
+    #[test]
+    fn common_framework_logs_keeps_logs_modified_after_process_start() {
+        let root = temp_test_dir("fresh-project-log");
+        let backend = root.join("backend");
+        let log_dir = root.join(".dev-logs");
+        std::fs::create_dir_all(&backend).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+        let current_log = log_dir.join("backend.log");
+        std::fs::write(&current_log, "current output").unwrap();
+
+        let started_at = SystemTime::now() - Duration::from_secs(60);
+        let logs = common_framework_logs(&backend, Some(started_at));
+
+        assert!(logs.iter().any(|file| file.path == current_log));
+    }
+
+    #[test]
+    fn common_framework_logs_rejects_logs_older_than_process_start() {
+        let root = temp_test_dir("stale-project-log");
+        let backend = root.join("backend");
+        let log_dir = root.join(".dev-logs");
+        std::fs::create_dir_all(&backend).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+        let stale_log = log_dir.join("backend-20260520-160517.log");
+        std::fs::write(&stale_log, "old output").unwrap();
+
+        let started_at = SystemTime::now() + Duration::from_secs(60);
+        let logs = common_framework_logs(&backend, Some(started_at));
+
+        assert!(!logs.iter().any(|file| file.path == stale_log));
+        assert!(logs.is_empty());
+    }
+
+    #[test]
+    fn parses_process_start_time_for_log_freshness_checks() {
+        let parsed = parse_lstart_system_time("May 20 14:12:44 2026");
+
+        assert!(parsed.is_some());
     }
 
     #[test]

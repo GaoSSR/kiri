@@ -140,7 +140,7 @@ fn render_port_table_with_width(
     }
 
     let rows = port_rows(ports);
-    let widths = calculate_column_widths(&rows, terminal_width);
+    let widths = calculate_column_widths(&rows, effective_port_table_width(terminal_width));
     let header = TableRow {
         cells: HEADERS.map(ToOwned::to_owned),
     };
@@ -382,6 +382,10 @@ fn current_terminal_width() -> usize {
         .map(|(Width(width), _)| usize::from(width))
         .filter(|width| *width > 0)
         .unwrap_or(DEFAULT_TERMINAL_WIDTH)
+}
+
+fn effective_port_table_width(terminal_width: usize) -> usize {
+    terminal_width.max(DEFAULT_TERMINAL_WIDTH)
 }
 
 fn port_rows(ports: &[PortInfo]) -> Vec<TableRow> {
@@ -1127,7 +1131,7 @@ mod tests {
     }
 
     #[test]
-    fn table_output_does_not_exceed_requested_width_for_long_project_names() {
+    fn table_output_uses_readable_minimum_width_for_long_project_names() {
         let port = sample_port(
             "project-name-that-is-far-too-long-for-the-current-terminal-width",
             "node /Users/dev/project/node_modules/.bin/vite --host 127.0.0.1 --port 5173",
@@ -1137,9 +1141,60 @@ mod tests {
 
         for line in output.lines() {
             assert!(
-                visible_width(line) <= 80,
+                visible_width(line) <= DEFAULT_TERMINAL_WIDTH,
                 "line exceeded width: {}",
                 strip_ansi_codes(line)
+            );
+        }
+    }
+
+    #[test]
+    fn common_project_names_stay_single_line_in_narrow_port_table() {
+        let port = sample_port("nori-agent-postgres-pgvector", "docker");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 85));
+
+        assert!(output.contains("nori-agent-postgres-pgvector"));
+        assert!(!output.contains("nori-age..."));
+        assert_eq!(
+            output
+                .lines()
+                .filter(|line| line.contains("nori-agent-postgres-pgvector"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn real_default_port_view_keeps_projects_single_line_in_narrow_windows() {
+        let projects = [
+            (5173, "frontend"),
+            (5432, "nori-agent-postgres"),
+            (6379, "nori-agent-redis"),
+            (8080, "backend"),
+            (55433, "nori-agent-postgres-pgvector"),
+        ];
+        let ports: Vec<_> = projects
+            .iter()
+            .enumerate()
+            .map(|(index, (_, project))| {
+                let mut port = sample_port(project, "docker");
+                port.port = projects[index].0;
+                port
+            })
+            .collect();
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&ports, true, 85));
+
+        for (port, project) in projects {
+            assert!(output.contains(project), "{project} should render fully");
+            assert_eq!(
+                output
+                    .lines()
+                    .filter(|line| line.contains(&port.to_string()) && line.contains(project))
+                    .count(),
+                1,
+                "{project} should render on the same single row as port {port}"
             );
         }
     }
@@ -1387,8 +1442,10 @@ mod tests {
         );
 
         let output = render_port_table_with_width(&[port], true, 80);
+        let stripped = strip_ansi_codes(&output);
 
-        assert!(output.contains("\x1b[38;2;101;163;13mproject"));
+        assert!(output.contains("\x1b[38;2;101;163;13m"));
+        assert!(stripped.contains("project"));
         let vite_line = output
             .lines()
             .find(|line| strip_ansi_codes(line).contains("Vite"))
@@ -1396,7 +1453,7 @@ mod tests {
         assert!(vite_line.contains(RED));
         for line in output.lines() {
             assert!(
-                visible_width(line) <= 80,
+                visible_width(line) <= DEFAULT_TERMINAL_WIDTH,
                 "line exceeded width: {}",
                 strip_ansi_codes(line)
             );

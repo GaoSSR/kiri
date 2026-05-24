@@ -8,6 +8,7 @@ const { createRequire } = require("node:module");
 const test = require("node:test");
 
 const {
+  binaryName,
   binaryPath,
   platformKey,
   platformPackageName,
@@ -86,6 +87,33 @@ test("falls back to local vendor binaries for staged package verification", () =
       packageRoot: tempRoot,
       requireFn: createRequire(__filename),
       runtime: { platform: "darwin", arch: "x64" },
+    }),
+    localBinary
+  );
+});
+
+test("uses the requested runtime when resolving Windows binary names", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kiri-npm-win-"));
+  const localBinary = path.join(tempRoot, "vendor", "win32-x64", "ports.exe");
+  fs.mkdirSync(path.dirname(localBinary), { recursive: true });
+  fs.writeFileSync(localBinary, "MZ");
+
+  assert.equal(
+    binaryName("ports", { platform: "win32", arch: "x64" }),
+    "ports.exe"
+  );
+  assert.equal(
+    binaryPath("ports", {
+      packageRoot: tempRoot,
+      runtime: { platform: "win32", arch: "x64" },
+    }),
+    localBinary
+  );
+  assert.equal(
+    resolveBinary("ports", {
+      packageRoot: tempRoot,
+      requireFn: createRequire(__filename),
+      runtime: { platform: "win32", arch: "x64" },
     }),
     localBinary
   );

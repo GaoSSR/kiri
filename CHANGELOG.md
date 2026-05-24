@@ -6,6 +6,34 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.18 - 2026-05-24
+
+### Added
+
+- Added README screenshots for the default `ports` overview and colored
+  `ports logs -f` output.
+
+### Changed
+
+- Kept common project names on one stable line in the default `ports` table,
+  even when the terminal reports a narrower width.
+- Switched `ports logs` INFO, source, and success colors from dark green to a
+  brighter green for better readability on light terminal backgrounds.
+- Scoped `--all` parsing to `ports` and `ports ps`, so unrelated commands reject
+  it before doing work.
+
+### Fixed
+
+- Fixed `ports logs` current-process log selection so live stdout/stderr logs
+  win over historical project log files.
+- Fixed `ports logs` and normal command output so broken pipes exit cleanly.
+- Fixed `ports watch` so existing listeners are not reported as new on startup
+  and interrupted scans do not create false removals.
+- Fixed npm Windows binary resolution so staged Windows runtime checks look for
+  `ports.exe`.
+- Preserved UTF-8 process commands while keeping stable English process start
+  times on macOS and Linux.
+
 ## 0.1.17 - 2026-05-24
 
 ### Added

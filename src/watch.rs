@@ -24,18 +24,35 @@ pub fn run_watch_command() -> i32 {
     println!("Kiri - watching for port changes");
     println!("Press Ctrl+C to stop\n");
 
-    let mut previous = HashSet::new();
+    let mut previous = watched_ports(&get_listening_ports(false));
     while running.load(Ordering::SeqCst) {
         let current = get_listening_ports(false);
-        for event in diff_ports(&previous, &current) {
+        let Some(events) =
+            watch_events_after_scan(&previous, &current, running.load(Ordering::SeqCst))
+        else {
+            break;
+        };
+        for event in events {
             println!("{}", render_watch_event(&event));
         }
-        previous = current.iter().map(|port| port.port).collect();
+        previous = watched_ports(&current);
         sleep(Duration::from_secs(2));
     }
 
     println!("\nStopped watching.");
     0
+}
+
+fn watched_ports(ports: &[PortInfo]) -> HashSet<u16> {
+    ports.iter().map(|port| port.port).collect()
+}
+
+fn watch_events_after_scan(
+    previous: &HashSet<u16>,
+    current: &[PortInfo],
+    keep_running: bool,
+) -> Option<Vec<WatchEvent>> {
+    keep_running.then(|| diff_ports(previous, current))
 }
 
 pub fn diff_ports(previous: &HashSet<u16>, current: &[PortInfo]) -> Vec<WatchEvent> {
@@ -114,6 +131,26 @@ mod tests {
         let events = diff_ports(&previous, &current);
 
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn initial_snapshot_prevents_existing_ports_from_being_reported_as_new() {
+        let current = vec![port_info(5173, 10, "node"), port_info(8080, 11, "java")];
+        let previous = watched_ports(&current);
+
+        let events = diff_ports(&previous, &current);
+
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn stop_signal_after_scan_suppresses_interrupted_empty_snapshot() {
+        let previous = HashSet::from([5173, 8080]);
+        let current = Vec::new();
+
+        let events = watch_events_after_scan(&previous, &current, false);
+
+        assert_eq!(events, None);
     }
 
     fn port_info(port: u16, pid: u32, process_name: &str) -> PortInfo {

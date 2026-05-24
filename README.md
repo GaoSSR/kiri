@@ -38,6 +38,14 @@
 
 Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
+<p align="center">
+  <img src="assets/readme/ports-overview.png" alt="Kiri ports overview" width="880">
+</p>
+
+<p align="center">
+  <img src="assets/readme/logs-follow.png" alt="Kiri colored log following" width="880">
+</p>
+
 ## Meet Kiri
 
 The default `ports` terminal view opens with a compact Kiri companion before the port table:
