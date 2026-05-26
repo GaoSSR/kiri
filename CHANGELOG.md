@@ -6,6 +6,16 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.20 - 2026-05-26
+
+### Fixed
+
+- Prevented `ports logs` from treating Codex control files as process log
+  files when stdout/stderr is attached to a Codex-managed pipe.
+- Added an explicit diagnostic for already-consumed stdout/stderr pipes so
+  `ports logs <port|pid> -f` exits with a useful restart-with-tee hint instead
+  of tailing an unrelated `.lock` file.
+
 ## 0.1.19 - 2026-05-24
 
 ### Fixed
