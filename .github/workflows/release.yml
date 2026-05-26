@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to build, for example v0.1.20"
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -40,6 +45,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
@@ -114,6 +121,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6.0.2
         with:
+          ref: ${{ inputs.release_tag || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node
@@ -140,9 +148,11 @@ jobs:
 
       - name: Build npm tarballs
         shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           node packaging/npm/scripts/build-packages.js \
             --version "${version}" \
             --release-dir dist \
@@ -150,10 +160,12 @@ jobs:
 
       - name: Generate release notes
         shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          previous_tag="$(git tag --sort=-v:refname | awk -v current="${GITHUB_REF_NAME}" '$0 != current { print; exit }')"
+          version="${RELEASE_TAG#v}"
+          previous_tag="$(git tag --sort=-v:refname | awk -v current="${RELEASE_TAG}" '$0 != current { print; exit }')"
           args=(
             scripts/generate-release-notes.js
             --version "${version}"
@@ -176,6 +188,7 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v3.0.0
         with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           body_path: dist/release-notes.md
           files: |
             dist/kiri-*.tar.gz
