@@ -6,6 +6,17 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.21 - 2026-05-26
+
+### Fixed
+
+- Stopped `ports logs` from falling back to empty macOS system log output when
+  the target process writes stdout/stderr to a pipe, terminal, or PTY that
+  cannot be replayed from another process.
+- Added a clearer restart-with-tee diagnostic for Codex Shell and other
+  terminal-backed processes, while still preferring real current log files when
+  they can be discovered.
+
 ## 0.1.20 - 2026-05-26
 
 ### Fixed

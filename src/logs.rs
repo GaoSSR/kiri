@@ -137,36 +137,18 @@ fn execute_logs_command(request: &LogRequest, resolver: &SystemResolver) -> LogC
         return run_tail(file, request, output);
     }
 
-    let pipe_log_tip = get_pipe_log_diagnostic(resolved.pid);
-    if request.follow {
-        if let Some(tip) = pipe_log_tip.as_deref() {
-            output.push_str("No log files found.\n\n");
-            output.push_str(tip);
-            return LogCommandOutcome {
-                exit_code: 1,
-                output,
-            };
-        }
-    }
-
-    if let Some(system_log) = get_system_log_command(resolved.pid, request.follow) {
-        output.push_str("No log files found. Falling back to system log...\n\n");
-        return run_system_log_command(
-            system_log,
-            resolved.pid,
-            request.follow,
-            output,
-            pipe_log_tip,
-        );
-    }
-
-    if let Some(tip) = pipe_log_tip {
-        output.push_str("No log files found.\n\n");
+    if let Some(tip) = get_stdio_stream_diagnostic(resolved.pid) {
+        output.push_str("No replayable log file found.\n\n");
         output.push_str(&tip);
         return LogCommandOutcome {
             exit_code: 1,
             output,
         };
+    }
+
+    if let Some(system_log) = get_system_log_command(resolved.pid, request.follow) {
+        output.push_str("No log files found. Falling back to system log...\n\n");
+        return run_system_log_command(system_log, resolved.pid, request.follow, output);
     }
 
     output.push_str(&format!(
@@ -375,7 +357,7 @@ fn parse_pipe_writer_log_files(raw: &str, pipe_ids: &HashSet<String>) -> Vec<Log
     sort_and_deduplicate_log_files(files)
 }
 
-fn get_pipe_log_diagnostic(pid: u32) -> Option<String> {
+fn get_stdio_stream_diagnostic(pid: u32) -> Option<String> {
     if !cfg!(any(target_os = "macos", target_os = "linux")) {
         return None;
     }
@@ -388,20 +370,36 @@ fn get_pipe_log_diagnostic(pid: u32) -> Option<String> {
         return None;
     }
 
-    let raw = String::from_utf8_lossy(&output.stdout);
-    let pipe_ids = parse_lsof_pipe_ids(&raw);
+    let target_raw = String::from_utf8_lossy(&output.stdout);
+    let pipe_ids = parse_lsof_pipe_ids(&target_raw);
     if pipe_ids.is_empty() {
-        return None;
+        return stdio_stream_log_tip(&target_raw, None);
     }
 
     let output = Command::new("lsof").output().ok()?;
     if !output.status.success() {
-        return None;
+        return stdio_stream_log_tip(&target_raw, None);
     }
 
-    let raw = String::from_utf8_lossy(&output.stdout);
-    let readers = parse_pipe_reader_processes(&raw, &pipe_ids);
-    pipe_reader_log_tip(&readers)
+    let all_raw = String::from_utf8_lossy(&output.stdout);
+    stdio_stream_log_tip(&target_raw, Some(&all_raw))
+}
+
+fn stdio_stream_log_tip(target_raw: &str, all_lsof_raw: Option<&str>) -> Option<String> {
+    let pipe_ids = parse_lsof_pipe_ids(target_raw);
+    if !pipe_ids.is_empty() {
+        let readers = all_lsof_raw
+            .map(|raw| parse_pipe_reader_processes(raw, &pipe_ids))
+            .unwrap_or_default();
+        return pipe_reader_log_tip(&readers).or_else(|| Some(generic_pipe_log_tip()));
+    }
+
+    let terminal_devices = parse_stdio_terminal_devices(target_raw);
+    if !terminal_devices.is_empty() {
+        return Some(terminal_stdio_log_tip(&terminal_devices));
+    }
+
+    None
 }
 
 fn parse_pipe_reader_processes(raw: &str, pipe_ids: &HashSet<String>) -> Vec<PipeReader> {
@@ -462,10 +460,54 @@ fn pipe_reader_log_tip(readers: &[PipeReader]) -> Option<String> {
 
     Some(format!(
         "{attached_to}\
-Kiri cannot tail an already-consumed pipe. Restart the service with file-backed output, for example:\n  \
+Kiri cannot tail an already-consumed pipe because it is not replayable. Restart the service with file-backed output, for example:\n  \
 <your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
 Then run:\n  ports logs <port|pid> -f\n"
     ))
+}
+
+fn generic_pipe_log_tip() -> String {
+    "stdout/stderr is attached to a pipe and is not replayable as a log file.\n\
+Kiri cannot read historical output after another process has consumed that pipe. Restart the service with file-backed output, for example:\n  \
+<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+Then run:\n  ports logs <port|pid> -f\n"
+        .to_string()
+}
+
+fn parse_stdio_terminal_devices(raw: &str) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut devices = Vec::new();
+
+    for line in raw.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 8 || parts[4] != "CHR" || !matches!(fd_number(parts[3]), Some(1 | 2)) {
+            continue;
+        }
+
+        let Some(path) = regular_file_path(&parts) else {
+            continue;
+        };
+        if is_terminal_device_path(&path) && seen.insert(path.clone()) {
+            devices.push(path);
+        }
+    }
+
+    devices
+}
+
+fn is_terminal_device_path(path: &str) -> bool {
+    path.starts_with("/dev/tty") || path.starts_with("/dev/pts/") || path.starts_with("/dev/ptmx")
+}
+
+fn terminal_stdio_log_tip(devices: &[String]) -> String {
+    let device_list = devices.join(", ");
+    format!(
+        "stdout/stderr is attached to terminal/PTY ({device_list}) and is not replayable as a log file.\n\
+Kiri cannot read historical output from another terminal/PTY after it has been rendered by the terminal UI. If this process was launched from Codex Shell, Codex can show its live terminal buffer, but ports cannot tail that buffer from a separate process.\n\
+Restart the service with file-backed output, for example:\n  \
+<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+Then run:\n  ports logs <port|pid> -f\n"
+    )
 }
 
 fn regular_file_path(parts: &[&str]) -> Option<String> {
@@ -911,7 +953,6 @@ fn run_system_log_command(
     pid: u32,
     follow: bool,
     mut output: String,
-    pipe_log_tip: Option<String>,
 ) -> LogCommandOutcome {
     let (command, args) = system_log.command_and_args();
     if follow {
@@ -934,14 +975,9 @@ fn run_system_log_command(
 
             if result.status.success() {
                 output.push_str(&format!("No system log entries found for PID {pid}.\n"));
-                if let Some(tip) = pipe_log_tip {
-                    output.push('\n');
-                    output.push_str(&tip);
-                } else {
-                    output.push_str(
-                        "Tip: if the process logs through a pipe, restart it with stdout/stderr redirected to a file or use tee output detection.\n",
-                    );
-                }
+                output.push_str(
+                    "Tip: if the process logs through a pipe, restart it with stdout/stderr redirected to a file or use tee output detection.\n",
+                );
             }
 
             LogCommandOutcome {
@@ -1596,6 +1632,39 @@ codex   78441 user    3u   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0
         let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
 
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn terminal_stdio_descriptor_gets_non_replayable_diagnostic() {
+        let target_raw = "\
+COMMAND   PID   USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+java    75495 gaossr    1u   CHR   16,2   0t11281 3353 /dev/ttys002
+java    75495 gaossr    2u   CHR   16,2   0t11281 3353 /dev/ttys002
+";
+
+        let diagnostic = stdio_stream_log_tip(target_raw, None).expect("diagnostic");
+
+        assert!(diagnostic.contains("terminal/PTY"));
+        assert!(diagnostic.contains("/dev/ttys002"));
+        assert!(diagnostic.contains("not replayable"));
+        assert!(diagnostic.contains("tee"));
+        assert!(!diagnostic.contains("system log"));
+    }
+
+    #[test]
+    fn pipe_stdio_without_reader_gets_non_replayable_diagnostic() {
+        let target_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+java    68388 user    1   PIPE 0xaaaa    16384      ->0xbbbb
+java    68388 user    2   PIPE 0xaaaa    16384      ->0xbbbb
+";
+
+        let diagnostic = stdio_stream_log_tip(target_raw, None).expect("diagnostic");
+
+        assert!(diagnostic.contains("stdout/stderr is attached to a pipe"));
+        assert!(diagnostic.contains("not replayable"));
+        assert!(diagnostic.contains("tee"));
+        assert!(!diagnostic.contains("system log"));
     }
 
     #[test]
