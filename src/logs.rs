@@ -29,6 +29,12 @@ pub struct LogFile {
     pub priority: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PipeReader {
+    pid: u32,
+    command: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFd {
     Stdout,
@@ -131,9 +137,36 @@ fn execute_logs_command(request: &LogRequest, resolver: &SystemResolver) -> LogC
         return run_tail(file, request, output);
     }
 
+    let pipe_log_tip = get_pipe_log_diagnostic(resolved.pid);
+    if request.follow {
+        if let Some(tip) = pipe_log_tip.as_deref() {
+            output.push_str("No log files found.\n\n");
+            output.push_str(tip);
+            return LogCommandOutcome {
+                exit_code: 1,
+                output,
+            };
+        }
+    }
+
     if let Some(system_log) = get_system_log_command(resolved.pid, request.follow) {
         output.push_str("No log files found. Falling back to system log...\n\n");
-        return run_system_log_command(system_log, resolved.pid, request.follow, output);
+        return run_system_log_command(
+            system_log,
+            resolved.pid,
+            request.follow,
+            output,
+            pipe_log_tip,
+        );
+    }
+
+    if let Some(tip) = pipe_log_tip {
+        output.push_str("No log files found.\n\n");
+        output.push_str(&tip);
+        return LogCommandOutcome {
+            exit_code: 1,
+            output,
+        };
     }
 
     output.push_str(&format!(
@@ -262,6 +295,10 @@ pub fn parse_lsof_log_files(raw: &str) -> Vec<LogFile> {
         let file_type = parts[4];
         let path = parts[8..].join(" ");
 
+        if is_control_file_path(&path) {
+            continue;
+        }
+
         if matches!(fd_number(fd), Some(1 | 2)) && file_type == "REG" && is_writable_fd(fd) {
             files.push(LogFile {
                 path: PathBuf::from(&path),
@@ -308,18 +345,9 @@ fn parse_pipe_writer_log_files(raw: &str, pipe_ids: &HashSet<String>) -> Vec<Log
         return Vec::new();
     }
 
-    let pipe_reader_pids: HashSet<&str> = raw
-        .lines()
-        .skip(1)
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 7 || parts[4] != "PIPE" {
-                return None;
-            }
-
-            let endpoint = parts.iter().find_map(|part| part.strip_prefix("->"))?;
-            pipe_ids.contains(endpoint).then_some(parts[1])
-        })
+    let pipe_reader_pids: HashSet<String> = parse_pipe_reader_processes(raw, pipe_ids)
+        .into_iter()
+        .map(|reader| reader.pid.to_string())
         .collect();
 
     let mut files = Vec::new();
@@ -347,6 +375,99 @@ fn parse_pipe_writer_log_files(raw: &str, pipe_ids: &HashSet<String>) -> Vec<Log
     sort_and_deduplicate_log_files(files)
 }
 
+fn get_pipe_log_diagnostic(pid: u32) -> Option<String> {
+    if !cfg!(any(target_os = "macos", target_os = "linux")) {
+        return None;
+    }
+
+    let output = Command::new("lsof")
+        .args(["-p", &pid.to_string()])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let pipe_ids = parse_lsof_pipe_ids(&raw);
+    if pipe_ids.is_empty() {
+        return None;
+    }
+
+    let output = Command::new("lsof").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let readers = parse_pipe_reader_processes(&raw, &pipe_ids);
+    pipe_reader_log_tip(&readers)
+}
+
+fn parse_pipe_reader_processes(raw: &str, pipe_ids: &HashSet<String>) -> Vec<PipeReader> {
+    if pipe_ids.is_empty() {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let mut readers = Vec::new();
+    for line in raw.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 7 || parts[4] != "PIPE" {
+            continue;
+        }
+
+        let Some(endpoint) = parts.iter().find_map(|part| part.strip_prefix("->")) else {
+            continue;
+        };
+        if !pipe_ids.contains(endpoint) {
+            continue;
+        }
+
+        let Ok(pid) = parts[1].parse::<u32>() else {
+            continue;
+        };
+        let command = parts[0].to_string();
+        if seen.insert((pid, command.clone())) {
+            readers.push(PipeReader { pid, command });
+        }
+    }
+
+    readers.sort_by(|left, right| {
+        left.command
+            .cmp(&right.command)
+            .then_with(|| left.pid.cmp(&right.pid))
+    });
+    readers
+}
+
+fn pipe_reader_log_tip(readers: &[PipeReader]) -> Option<String> {
+    if readers.is_empty() {
+        return None;
+    }
+
+    let reader_list = readers
+        .iter()
+        .map(|reader| format!("{} PID {}", reader.command, reader.pid))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let attached_to = if readers
+        .iter()
+        .any(|reader| reader.command.eq_ignore_ascii_case("codex"))
+    {
+        format!("stdout/stderr is attached to Codex ({reader_list}), not a log file.\n")
+    } else {
+        format!("stdout/stderr is attached to a pipe reader ({reader_list}), not a log file.\n")
+    };
+
+    Some(format!(
+        "{attached_to}\
+Kiri cannot tail an already-consumed pipe. Restart the service with file-backed output, for example:\n  \
+<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+Then run:\n  ports logs <port|pid> -f\n"
+    ))
+}
+
 fn regular_file_path(parts: &[&str]) -> Option<String> {
     if parts.len() >= 9 {
         Some(parts[8..].join(" "))
@@ -369,16 +490,29 @@ fn is_writable_fd(fd: &str) -> bool {
 }
 
 pub fn is_log_like_path(path: &str) -> bool {
+    if is_control_file_path(path) {
+        return false;
+    }
+
     let lower = path.to_ascii_lowercase();
     lower.ends_with(".log")
         || lower.contains("/log/")
         || lower.contains("/logs/")
         || lower.contains("\\log\\")
         || lower.contains("\\logs\\")
-        || lower.contains("/tmp/")
         || lower.contains("nohup.out")
         || lower.contains("stdout")
         || lower.contains("stderr")
+}
+
+fn is_control_file_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let file_name = lower.rsplit(['/', '\\']).next().unwrap_or(lower.as_str());
+
+    file_name == ".lock"
+        || file_name.ends_with(".lock")
+        || lower.contains("/.codex/tmp/")
+        || lower.contains("\\.codex\\tmp\\")
 }
 
 fn common_framework_logs(cwd: &Path, started_at: Option<SystemTime>) -> Vec<LogFile> {
@@ -777,6 +911,7 @@ fn run_system_log_command(
     pid: u32,
     follow: bool,
     mut output: String,
+    pipe_log_tip: Option<String>,
 ) -> LogCommandOutcome {
     let (command, args) = system_log.command_and_args();
     if follow {
@@ -798,10 +933,15 @@ fn run_system_log_command(
             }
 
             if result.status.success() {
-                output.push_str(&format!(
-                    "No system log entries found for PID {pid}.\n\
-Tip: if the process logs through a pipe, restart it with stdout/stderr redirected to a file or use tee output detection.\n"
-                ));
+                output.push_str(&format!("No system log entries found for PID {pid}.\n"));
+                if let Some(tip) = pipe_log_tip {
+                    output.push('\n');
+                    output.push_str(&tip);
+                } else {
+                    output.push_str(
+                        "Tip: if the process logs through a pipe, restart it with stdout/stderr redirected to a file or use tee output detection.\n",
+                    );
+                }
             }
 
             LogCommandOutcome {
@@ -1313,11 +1453,14 @@ mod tests {
 
     #[test]
     fn identifies_log_like_paths() {
-        assert!(is_log_like_path("/tmp/next.output"));
+        assert!(is_log_like_path("/tmp/next.stdout"));
         assert!(is_log_like_path("/repo/log/development.log"));
         assert!(is_log_like_path("/repo/logs/app.txt"));
         assert!(is_log_like_path("nohup.out"));
         assert!(is_log_like_path("stderr"));
+        assert!(!is_log_like_path(
+            "/Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock"
+        ));
         assert!(!is_log_like_path("/repo/src/main.rs"));
     }
 
@@ -1354,6 +1497,18 @@ node    42872 user   11u   REG   1,18      640 1236 /repo/log/app.log
         assert_eq!(files[0].fd, LogFd::Stdout);
         assert_eq!(files[1].fd, LogFd::Stderr);
         assert_eq!(files[2].fd, LogFd::File);
+    }
+
+    #[test]
+    fn lsof_parser_ignores_control_file_stdout_redirects() {
+        let raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+codex   78441 user    1w   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock
+";
+
+        let files = parse_lsof_log_files(raw);
+
+        assert!(files.is_empty());
     }
 
     #[test]
@@ -1427,6 +1582,54 @@ tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
         let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
 
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn ignores_codex_pipe_reader_lock_files() {
+        let pipe_ids = HashSet::from(["0x7bbd83a94dd23494".to_string()]);
+        let peer_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+codex   78441 user  132   PIPE 0xec23d4f1a323fe98 16384 ->0x7bbd83a94dd23494
+codex   78441 user    3u   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock
+";
+
+        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn parses_pipe_reader_processes_for_target_pipe() {
+        let pipe_ids = HashSet::from(["0x7bbd83a94dd23494".to_string()]);
+        let peer_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+codex   78441 user  132   PIPE 0xec23d4f1a323fe98 16384 ->0x7bbd83a94dd23494
+tail    98725 user    3r   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock
+";
+
+        let readers = parse_pipe_reader_processes(peer_raw, &pipe_ids);
+
+        assert_eq!(
+            readers,
+            vec![PipeReader {
+                pid: 78441,
+                command: "codex".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn codex_pipe_reader_diagnostic_explains_unreadable_pipe() {
+        let diagnostic = pipe_reader_log_tip(&[PipeReader {
+            pid: 78441,
+            command: "codex".to_string(),
+        }])
+        .expect("diagnostic");
+
+        assert!(diagnostic.contains("Codex"));
+        assert!(diagnostic.contains("already-consumed pipe"));
+        assert!(diagnostic.contains("tee"));
+        assert!(!diagnostic.contains(".lock"));
     }
 
     #[test]
