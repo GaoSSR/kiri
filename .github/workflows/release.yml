@@ -43,10 +43,18 @@ jobs:
             binary: ports.exe
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
+      - name: Checkout release source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c credential.helper= -c http.extraheader= \
+            fetch --no-tags --depth=1 origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          git checkout --detach "${RELEASE_TAG}"
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
@@ -118,11 +126,20 @@ jobs:
     needs: build
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-        with:
-          ref: ${{ inputs.release_tag || github.ref }}
-          fetch-depth: 0
+      - name: Checkout release source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c credential.helper= -c http.extraheader= \
+            fetch --depth=1 origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          git -c credential.helper= -c http.extraheader= \
+            fetch --tags --force --depth=1 origin "refs/tags/v*:refs/tags/v*" || true
+          git checkout --detach "${RELEASE_TAG}"
 
       - name: Setup Node
         uses: actions/setup-node@v6.4.0
