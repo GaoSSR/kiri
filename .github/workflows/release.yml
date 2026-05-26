@@ -202,9 +202,22 @@ jobs:
           awk '{ sub(/\r$/, ""); print }' dist/*.sha256 > dist/checksums.txt
           shasum -a 256 dist/npm/*.tgz | sed 's#dist/npm/##' >> dist/checksums.txt
 
+      - name: Upload release payload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-payload-${{ inputs.release_tag || github.ref_name }}
+          path: |
+            dist/kiri-*.tar.gz
+            dist/kiri-*.zip
+            dist/npm/*.tgz
+            dist/checksums.txt
+            dist/release-notes.md
+          if-no-files-found: error
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v3.0.0
         with:
+          token: ${{ secrets.KIRI_RELEASE_TOKEN || github.token }}
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           body_path: dist/release-notes.md
           files: |
